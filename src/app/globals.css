@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/*
+ * Neighborhood Life design tokens.
+ * Theme-aware: light by default, dark via .dark class (added later by a theme toggle).
+ */
+@theme {
+  --color-brand-50: oklch(0.97 0.02 155);
+  --color-brand-100: oklch(0.94 0.05 155);
+  --color-brand-500: oklch(0.62 0.14 155);
+  --color-brand-600: oklch(0.55 0.14 155);
+  --color-brand-700: oklch(0.47 0.12 155);
+
+  --color-ink: oklch(0.22 0.01 260);
+  --color-muted: oklch(0.55 0.01 260);
+  --color-surface: oklch(0.99 0 0);
+  --color-surface-2: oklch(0.97 0.005 260);
+  --color-line: oklch(0.9 0.005 260);
+
+  --radius-card: 0.875rem;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Confidence badge accents — data honesty is a first-class UI concern (CLAUDE.md §13). */
+.confidence-high {
+  color: oklch(0.5 0.13 155);
+}
+.confidence-good {
+  color: oklch(0.6 0.12 230);
+}
+.confidence-limited {
+  color: oklch(0.68 0.13 75);
+}
+.confidence-experimental {
+  color: oklch(0.6 0.02 260);
+}
