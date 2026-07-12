@@ -12,6 +12,32 @@ imports or scrapes; it reads prepared data from PostGIS.
 - **Normalize** raw OSM tags into the platform taxonomy (`categories.slug`).
 - **Deduplicate** / entity-resolve places into canonical records (§14).
 - Compute **neighborhood metrics** and (re)compute **scores** on a schedule.
+- Import **official demographics** from TÜİK ADNKS into the `demographics`
+  table — facts only, attributed and dated, never fed into scores (see below).
+
+## Demographics import (TÜİK ADNKS)
+
+Population figures are **facts, not a score** (CLAUDE.md §12.5, §28). The only
+acceptable source is authoritative official data:
+
+- **TÜİK** (Türkiye İstatistik Kurumu) — **ADNKS**, the Address-Based Population
+  Registration System. Publishes total population down to the **mahalle
+  (neighborhood)** level annually, plus age/sex/household breakdowns at
+  **province/district** level.
+
+Rules for this importer:
+
+1. Load only official TÜİK datasets — **never scrape, never estimate**. If a
+   breakdown isn't published at a level, leave it null (don't interpolate).
+2. Upsert into `demographics` keyed by `(source, admin_level, admin_code,
+   reference_year)`, stamping `source_dataset`, `reference_year`, `license` and
+   `attribution` on every row.
+3. Link `neighborhood_id` when the admin unit matches a known neighborhood.
+4. **Verify TÜİK's current terms of use / redistribution license** before the
+   first production import (same discipline as every source, §12.5).
+
+The web app reads these rows via `TuikDemographicsSource` and renders them with
+`buildDemographicFacts` — attributed, dated, and isolated from scoring.
 
 ## Planned stack (§15.5)
 
