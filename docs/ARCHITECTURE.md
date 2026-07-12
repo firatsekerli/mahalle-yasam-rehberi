@@ -49,6 +49,25 @@ up to **5** review excerpts are fetched only when a user opens a specific
 business, are kept isolated from the permanent record, always carry attribution,
 and are cached only within Google's allowed window. See `CLAUDE.md` §31.1.
 
+### Demographics are facts-only, official, and isolated from scoring (§12.5, §28)
+
+Population data comes solely from an authoritative official source — **TÜİK
+ADNKS** (Address-Based Population Registration System). It is shown as
+**attributed, dated facts**, never inferred, estimated, or used as a scoring
+input (§28 forbids demographic claims without reliable licensed data; profiling
+is out of scope, §18.3).
+
+- Stored in `demographics` (migration `0004`), keyed by administrative unit and
+  reference year, with source, dataset, license, attribution and confidence.
+- `TuikDemographicsSource` (`src/lib/data/adapters/demographics.ts`) reads
+  worker-imported rows behind an injectable lookup — the app never scrapes or
+  fabricates figures.
+- `buildDemographicFacts` / `summarizeDemographics`
+  (`src/lib/demographics/facts.ts`) compute shares + a freshness label and emit a
+  deterministic, source-cited statement. This module never imports scoring.
+- Finer breakdowns (age/sex/household) exist mostly at province/district level;
+  at mahalle level they're commonly absent and are left null, not interpolated.
+
 ### Data model
 
 Canonical `places` are source-independent; `place_source_references` preserves
