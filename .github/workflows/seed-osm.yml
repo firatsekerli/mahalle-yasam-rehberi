@@ -1,0 +1,28 @@
+name: Seed OSM data
+
+# Populate Supabase `osm_places` with real OpenStreetMap data for the pilot
+# neighborhoods. Runs on GitHub's network (Overpass is reachable here) and writes
+# to Supabase with the service-role key. Trigger manually from the Actions tab.
+#
+# Required repository secrets:
+#   SUPABASE_URL                — your Supabase project URL
+#   SUPABASE_SERVICE_ROLE_KEY   — service-role key (server-only; never in the app)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm seed:osm
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

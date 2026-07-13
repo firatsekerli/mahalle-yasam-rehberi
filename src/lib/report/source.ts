@@ -1,16 +1,19 @@
 /**
- * Report place-source resolution (CLAUDE.md §12.1, §15.5 prototype flow).
+ * Report place-source resolution (CLAUDE.md §12.1, §15.4/§15.5).
  *
  * Decides where a report's places come from and whether the result is real or
- * sample data. Kept pure and injectable (no `next/cache`, no `fetch`) so the
- * fallback logic is unit-testable; the live wiring lives in `data.ts`.
+ * sample. Kept pure and injectable (no `next/cache`, no `fetch`, no Supabase) so
+ * the ordering/fallback logic is unit-testable; the live wiring lives in
+ * `data.ts`.
  *
- * Policy:
- *  - `forceSample` (env-driven) → always sample.
- *  - Otherwise try live OpenStreetMap; on error OR an empty result, fall back to
- *    sample so a report is never blank. An empty live result for a real
- *    neighborhood almost always means a transient/blocked fetch, not "nothing
- *    exists here", so sample is the safer render.
+ * Order of preference:
+ *  1. `forceSample` (env) → always sample.
+ *  2. Each real source in order (Supabase DB, then live OSM) — the first that
+ *     returns a non-empty result wins (`sample: false`).
+ *  3. Otherwise the sample dataset, so a report is never blank.
+ *
+ * A source that throws or returns [] is skipped, not fatal — an empty/failed
+ * real source almost always means "not seeded / transient", not "nothing here".
  */
 
 import type { BaselinePlace } from "@/lib/data/adapters/types";
@@ -22,12 +25,14 @@ export interface ResolvedPlaces {
   sample: boolean;
 }
 
+export type PlaceFetcher = (neighborhood: NeighborhoodMeta) => Promise<BaselinePlace[]>;
+
 export interface ResolvePlacesDeps {
-  /** Fetch real OSM places for the neighborhood; may throw or return []. */
-  fetchLive: (neighborhood: NeighborhoodMeta) => Promise<BaselinePlace[]>;
+  /** Real sources tried in order; first non-empty wins. Falsy entries are skipped. */
+  realSources: (PlaceFetcher | undefined | false | null)[];
   /** Sample fallback places for the neighborhood. */
   getSample: (slug: string) => BaselinePlace[];
-  /** When true, skip live entirely and use sample (env: DATA_SOURCE=sample). */
+  /** When true, skip real sources and use sample (env: DATA_SOURCE=sample). */
   forceSample: boolean;
 }
 
@@ -35,17 +40,16 @@ export async function resolveNeighborhoodPlaces(
   neighborhood: NeighborhoodMeta,
   deps: ResolvePlacesDeps,
 ): Promise<ResolvedPlaces> {
-  if (deps.forceSample) {
-    return { places: deps.getSample(neighborhood.slug), sample: true };
-  }
-  try {
-    const live = await deps.fetchLive(neighborhood);
-    if (live.length === 0) {
-      return { places: deps.getSample(neighborhood.slug), sample: true };
+  if (!deps.forceSample) {
+    for (const source of deps.realSources) {
+      if (!source) continue;
+      try {
+        const places = await source(neighborhood);
+        if (places.length > 0) return { places, sample: false };
+      } catch {
+        // Skip this source (down / rate-limited / not seeded) and try the next.
+      }
     }
-    return { places: live, sample: false };
-  } catch {
-    // Overpass down / rate-limited / blocked → never show a blank report.
-    return { places: deps.getSample(neighborhood.slug), sample: true };
   }
+  return { places: deps.getSample(neighborhood.slug), sample: true };
 }

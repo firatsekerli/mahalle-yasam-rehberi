@@ -64,6 +64,36 @@ describe("buildNeighborhoodReport", () => {
     }
   });
 
+  it("builds a nearest-first business list and never shows a raw slug", () => {
+    const r = build("general");
+    expect(r.businesses.length).toBeGreaterThan(0);
+    expect(r.placeCount).toBe(getSamplePlaces("kizilay").length);
+    const distances = r.businesses.map((b) => b.distanceMeters);
+    expect(distances).toEqual([...distances].sort((a, b) => a - b));
+    // Sample places carry their slug as the name → displayed as the Turkish
+    // category label, and marked not-named.
+    const market = r.businesses.find((b) => b.categorySlug === "supermarket")!;
+    expect(market.named).toBe(false);
+    expect(market.name).toBe("Süpermarket");
+  });
+
+  it("uses the real business name when present (live data)", () => {
+    const withName = getSamplePlaces("kizilay").map((p, i) =>
+      i === 0 ? { ...p, name: "Migros Kızılay" } : p,
+    );
+    const r = buildNeighborhoodReport({
+      neighborhood: kizilay,
+      places: withName,
+      demographics: null,
+      profile: getProfile("general"),
+      currentYear: 2026,
+      sample: false,
+    });
+    const named = r.businesses.find((b) => b.named);
+    expect(named?.name).toBe("Migros Kızılay");
+    expect(named?.categoryName).toBe("Süpermarket");
+  });
+
   it("returns null demographics when none imported, and facts when present", () => {
     expect(build("general").demographics).toBeNull();
 

@@ -46,34 +46,33 @@ Every future PR gets an automatic **preview URL** — useful for review.
 
 ---
 
-## Phase 1 — Real open data ($0 in API costs)
+## Phase 1 — Real open data via Supabase ($0 in API costs)
 
-> **Already live in the app:** the report fetches **real** OpenStreetMap places
-> via Overpass at request time (cached a day), with a graceful fallback to sample
-> data. On Vercel this shows real Ankara data with **no Supabase required**. Set
-> `DATA_SOURCE=sample` to force the sample dataset. The steps below move that data
-> into PostGIS for scale, dedup and persistence.
+The app reads places in this order: **Supabase `osm_places` → live Overpass →
+sample**. Seeding Supabase gives reliable real data without an Overpass call on
+every request. `DATA_SOURCE=sample` forces the sample dataset.
 
-Replace the on-demand Overpass fetch with imported OpenStreetMap data in Supabase.
-No paid APIs.
+**One-time setup:**
 
-1. **Create a Supabase project** (Free tier is fine to start).
-2. **Run the migrations** in `supabase/migrations/` in order (0001→0004) via the
-   Supabase SQL editor or the Supabase CLI. `0001` enables PostGIS.
-3. **Add env vars in Vercel** (Project → Settings → Environment Variables) from
-   `.env.example`:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+1. **Create a Supabase project** (Free tier is enough for the pilot).
+2. **Run the migrations** in `supabase/migrations/` in order (0001→0005) via the
+   Supabase SQL editor. `0001` enables PostGIS; `0005` creates `osm_places`.
+3. **Add env vars in Vercel** (Project → Settings → Environment Variables):
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public read)
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only — never exposed to the browser)
-4. **Import OSM data** for the pilot neighborhoods via the Python worker
-   (`worker/`): Overpass query → normalize tags → upsert `places` +
-   `place_source_references` → compute `neighborhood_place_membership`.
-5. **Swap the data layer**: point `src/lib/report/data.ts` at a PostGIS read
-   instead of the sample seed (same `getNeighborhoodReport` signature, so the
-   page doesn't change).
-6. **Import TÜİK demographics** (worker → `demographics` table). **Verify TÜİK's
-   redistribution license first.**
+4. **Add GitHub repo secrets** (Settings → Secrets → Actions):
+   - `SUPABASE_URL` (your project URL) and `SUPABASE_SERVICE_ROLE_KEY`
+5. **Seed the data:** Actions tab → **"Seed OSM data"** → *Run workflow*. It
+   fetches real OSM around each pilot neighborhood and upserts into `osm_places`.
+   (Or run locally: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm seed:osm`.)
+6. **Redeploy** (or wait for the ISR cache to expire). The report now serves real
+   data from Supabase, with the green "Canlı OpenStreetMap verisi" badge.
 
-At the end of Phase 1 the live site shows real OSM-based reports at $0 API cost.
+**To refresh** later, or after adding neighborhoods, just re-run the Seed action.
+
+**Later (scale):** move `osm_places` into the canonical `places` +
+`place_source_references` model with dedup (§14), and import **TÜİK demographics**
+into the `demographics` table (**verify TÜİK's redistribution license first**).
 
 ---
 

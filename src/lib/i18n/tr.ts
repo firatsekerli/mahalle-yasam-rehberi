@@ -104,6 +104,11 @@ export const T = {
     categoryNote:
       "profili için ağırlıklandırıldı. Mesafeler mahalle merkezinden kuş uçuşudur (yürüyüş rotası değildir).",
     topNearby: "Yakındaki en iyi seçenekler",
+    businessesTitle: "Bu mahalledeki işletmeler",
+    businessesCount: (shown: number, total: number) =>
+      shown < total ? `${total} işletme bulundu — en yakın ${shown} tanesi gösteriliyor` : `${total} işletme bulundu`,
+    businessesEmpty: "Bu bölge için henüz işletme verisi yüklenmedi.",
+    liveData: "Canlı OpenStreetMap verisi",
     unavailable:
       "Henüz mevcut değil — elimizde olmayan veriye ihtiyaç duyar (puana dahil edilmez, sıfır sayılmaz).",
     weight: "ağırlık",
