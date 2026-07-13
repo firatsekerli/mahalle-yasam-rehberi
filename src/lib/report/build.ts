@@ -75,6 +75,29 @@ export interface NeighborhoodReport {
 /** Max businesses sent to the client for the list (the count still reports the true total). */
 const MAX_BUSINESSES = 150;
 
+/**
+ * Categories excluded from the *business list* (they still count toward scoring).
+ * These are transit/parking infrastructure, not businesses — and OSM names bus
+ * stops after nearby landmarks (e.g. a stop named "Kuğulu Park"), which reads as
+ * noise in a venue list.
+ */
+const NON_BUSINESS_CATEGORIES = new Set(["bus_stop", "taxi_stand", "parking", "bicycle_infra"]);
+
+/** Collapse repeated *named* places (OSM often has a point + a building for one venue). */
+function dedupeNamed(options: NearbyOption[]): NearbyOption[] {
+  const seen = new Set<string>();
+  const out: NearbyOption[] = [];
+  for (const o of options) {
+    if (o.named) {
+      const key = `${o.name.toLocaleLowerCase("tr-TR")}|${o.categorySlug}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(o);
+  }
+  return out;
+}
+
 export interface BuildReportArgs {
   neighborhood: NeighborhoodMeta;
   places: BaselinePlace[];
@@ -127,13 +150,19 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
 
   const highlights = buildHighlights(withDistance, highlightsPerGroup);
 
-  // Flat nearest-first business list (§31.1). Only places that map to a tracked
-  // category; nearest MAX_BUSINESSES for a bounded payload.
-  const categorized = withDistance.filter(({ place }) => getCategory(place.categorySlug));
-  const businesses = categorized
-    .map(({ place, distanceMeters }) => toOption(place, distanceMeters))
-    .sort((a, b) => a.distanceMeters - b.distanceMeters)
-    .slice(0, MAX_BUSINESSES);
+  // Flat nearest-first business list (§31.1): tracked categories, minus transit
+  // infrastructure, de-duplicated, nearest first. Bus stops etc. still feed the
+  // scoring above — they're just excluded from the *venue list*.
+  const listable = dedupeNamed(
+    withDistance
+      .filter(({ place }) => {
+        const cat = getCategory(place.categorySlug);
+        return cat && !NON_BUSINESS_CATEGORIES.has(place.categorySlug);
+      })
+      .map(({ place, distanceMeters }) => toOption(place, distanceMeters))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters),
+  );
+  const businesses = listable.slice(0, MAX_BUSINESSES);
 
   return {
     neighborhood,
@@ -142,7 +171,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     demographics: demographics ? buildDemographicFacts(demographics, currentYear) : null,
     highlights,
     businesses,
-    placeCount: categorized.length,
+    placeCount: listable.length,
     dataNotice: {
       sample,
       message: sample

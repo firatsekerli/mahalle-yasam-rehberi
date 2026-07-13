@@ -31,7 +31,7 @@ describe("buildNeighborhoodReport", () => {
     expect(r.neighborhood.name).toBe("Kızılay");
     expect(r.score.overall).toBeGreaterThan(0);
     expect(r.score.overall).toBeLessThanOrEqual(100);
-    expect(r.placeCount).toBe(getSamplePlaces("kizilay").length);
+    expect(r.placeCount).toBeGreaterThan(0);
   });
 
   it("flags sample data and carries the honesty notice", () => {
@@ -67,7 +67,7 @@ describe("buildNeighborhoodReport", () => {
   it("builds a nearest-first business list and never shows a raw slug", () => {
     const r = build("general");
     expect(r.businesses.length).toBeGreaterThan(0);
-    expect(r.placeCount).toBe(getSamplePlaces("kizilay").length);
+    expect(r.placeCount).toBe(r.businesses.length); // sample < MAX_BUSINESSES
     const distances = r.businesses.map((b) => b.distanceMeters);
     expect(distances).toEqual([...distances].sort((a, b) => a - b));
     // Sample places carry their slug as the name → displayed as the Turkish
@@ -75,6 +75,35 @@ describe("buildNeighborhoodReport", () => {
     const market = r.businesses.find((b) => b.categorySlug === "supermarket")!;
     expect(market.named).toBe(false);
     expect(market.name).toBe("Süpermarket");
+  });
+
+  it("excludes transit infrastructure from the business list (still in scoring)", () => {
+    const r = build("general");
+    for (const b of r.businesses) {
+      expect(["bus_stop", "taxi_stand", "parking", "bicycle_infra"]).not.toContain(b.categorySlug);
+    }
+    // Transport still scores — the bus stops fed the dimension, just not the list.
+    const transport = r.score.dimensions.find((d) => d.weightKey === "transport_mobility");
+    expect(transport?.score).toBeGreaterThan(0);
+  });
+
+  it("de-duplicates repeated named venues (keeps the nearest)", () => {
+    const base = getSamplePlaces("kizilay");
+    const dupes = [
+      ...base,
+      { ...base[0], sourceId: "x/1", name: "Teğmen Kalmaz İlkokulu", categorySlug: "primary_school" },
+      { ...base[0], sourceId: "x/2", name: "Teğmen Kalmaz İlkokulu", categorySlug: "primary_school" },
+    ];
+    const r = buildNeighborhoodReport({
+      neighborhood: kizilay,
+      places: dupes,
+      demographics: null,
+      profile: getProfile("general"),
+      currentYear: 2026,
+      sample: false,
+    });
+    const schools = r.businesses.filter((b) => b.name === "Teğmen Kalmaz İlkokulu");
+    expect(schools.length).toBe(1);
   });
 
   it("uses the real business name when present (live data)", () => {
