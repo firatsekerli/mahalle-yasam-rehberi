@@ -118,6 +118,8 @@ export interface OsmBaselineSourceOptions {
   fetchImpl?: typeof fetch;
   /** Injectable clock for deterministic `sourceTimestamp` in tests. */
   now?: () => Date;
+  /** Abort the request after this many ms so a slow Overpass can't stall a page. */
+  timeoutMs?: number;
 }
 
 export class OsmBaselineSource implements PlaceBaselineSource {
@@ -125,19 +127,26 @@ export class OsmBaselineSource implements PlaceBaselineSource {
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => Date;
+  private readonly timeoutMs: number;
 
   constructor(opts: OsmBaselineSourceOptions = {}) {
     this.endpoint = opts.endpoint ?? DEFAULT_ENDPOINT;
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.now = opts.now ?? (() => new Date());
+    this.timeoutMs = opts.timeoutMs ?? 15_000;
   }
 
   async fetchNearby(center: GeoPoint, radiusMeters: number): Promise<BaselinePlace[]> {
     const query = overpassQuery(center, radiusMeters);
     const res = await this.fetchImpl(this.endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        // Identify the client politely on the shared public endpoint.
+        "User-Agent": "MahalleYasam/0.1 (neighborhood report prototype)",
+      },
       body: new URLSearchParams({ data: query }).toString(),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!res.ok) {
       // Surface a clear, actionable API error (Overpass rate-limits with 429).
