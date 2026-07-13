@@ -1,5 +1,7 @@
-import { Search, Scale, SlidersHorizontal, Building2 } from "lucide-react";
+import Link from "next/link";
+import { Search, Scale, SlidersHorizontal, Building2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { listReportNeighborhoods } from "@/lib/report/data";
 
 const PROFILES = [
   "General daily life",
@@ -46,6 +48,21 @@ export default function Home() {
           Coverage begins with a small set of manually reviewed Ankara
           neighborhoods. We show data confidence and never claim complete coverage.
         </p>
+
+        {/* Reachable sample reports (§29 step 9) */}
+        <div className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2">
+          <span className="self-center text-sm text-muted">Try a sample report:</span>
+          {listReportNeighborhoods().map((n) => (
+            <Link
+              key={n.slug}
+              href={`/n/${n.slug}`}
+              className="inline-flex items-center gap-1 rounded-full border border-brand-500 px-4 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+            >
+              {n.name}, {n.district}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          ))}
+        </div>
       </section>
 
       {/* What makes it different (§8) */}
