@@ -19,14 +19,14 @@ export interface LifestyleProfile {
 export const LIFESTYLE_PROFILES: LifestyleProfile[] = [
   {
     slug: "general",
-    name: "General daily life",
-    description: "Balanced weighting across everyday needs.",
+    name: "Genel günlük yaşam",
+    description: "Günlük ihtiyaçlar arasında dengeli ağırlıklandırma.",
     weights: { ...DEFAULT_SCORING_CONFIG.weights },
   },
   {
     slug: "family",
-    name: "Family with children",
-    description: "Emphasizes schools, health and daily essentials.",
+    name: "Çocuklu aile",
+    description: "Okullara, sağlığa ve günlük temel ihtiyaçlara ağırlık verir.",
     weights: {
       daily_essentials: 0.18, health_wellbeing: 0.15, transport_mobility: 0.12,
       family_education: 0.22, food_social: 0.06, fitness_recreation: 0.08,
@@ -35,8 +35,8 @@ export const LIFESTYLE_PROFILES: LifestyleProfile[] = [
   },
   {
     slug: "student",
-    name: "Student",
-    description: "Emphasizes transport, food, social life and late hours.",
+    name: "Öğrenci",
+    description: "Ulaşıma, yeme-içmeye, sosyal yaşama ve geç saatlere ağırlık verir.",
     weights: {
       daily_essentials: 0.15, health_wellbeing: 0.08, transport_mobility: 0.2,
       family_education: 0.02, food_social: 0.2, fitness_recreation: 0.1,
@@ -45,8 +45,8 @@ export const LIFESTYLE_PROFILES: LifestyleProfile[] = [
   },
   {
     slug: "car_free",
-    name: "Car-free lifestyle",
-    description: "Heavily weights public transport and walkable access.",
+    name: "Arabasız yaşam",
+    description: "Toplu taşımaya ve yürünebilir erişime yüksek ağırlık verir.",
     weights: {
       daily_essentials: 0.22, health_wellbeing: 0.13, transport_mobility: 0.28,
       family_education: 0.06, food_social: 0.08, fitness_recreation: 0.06,
@@ -55,8 +55,8 @@ export const LIFESTYLE_PROFILES: LifestyleProfile[] = [
   },
   {
     slug: "pet_owner",
-    name: "Pet owner",
-    description: "Emphasizes veterinary, pet services and green space.",
+    name: "Evcil hayvan sahibi",
+    description: "Veterinere, evcil hayvan hizmetlerine ve yeşil alana ağırlık verir.",
     weights: {
       daily_essentials: 0.18, health_wellbeing: 0.12, transport_mobility: 0.12,
       family_education: 0.05, food_social: 0.07, fitness_recreation: 0.13,

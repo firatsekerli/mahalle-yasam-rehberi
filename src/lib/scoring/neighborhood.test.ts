@@ -78,8 +78,8 @@ describe("scoreNeighborhood", () => {
     const healthFull = full.dimensions.find((d) => d.weightKey === "health_wellbeing")!;
     const healthMissing = missing.dimensions.find((d) => d.weightKey === "health_wellbeing")!;
     expect(healthMissing.score!).toBeLessThan(healthFull.score!);
-    expect(missing.missingServices).toContain("Pharmacy");
-    expect(missing.missingServices).toContain("Clinic");
+    expect(missing.missingServices).toContain("Eczane");
+    expect(missing.missingServices).toContain("Klinik / poliklinik");
   });
 
   it("scores a barren neighborhood low with experimental/limited confidence", () => {
@@ -102,15 +102,15 @@ describe("scoreNeighborhood", () => {
       { categorySlug: "bank", distanceMeters: 200 } as ScorablePlace,
     ];
     const r = scoreNeighborhood(withServices, W);
-    expect(r.contextDimensions[0].name).toContain("Personal");
+    expect(r.contextDimensions[0].name).toContain("Kişisel");
     // personal_household is not among the weighted dimensions.
     expect(r.dimensions.every((d) => d.name !== r.contextDimensions[0].name)).toBe(true);
   });
 
-  it("writes a plain-language summary grounded in the numbers", () => {
+  it("writes a plain-language (Turkish) summary grounded in the numbers", () => {
     const r = scoreNeighborhood(wellCovered, W);
-    expect(r.summary).toContain(`${r.overall}/100`);
-    expect(r.summary).toMatch(/data confidence is (high|good|limited|experimental)/i);
+    expect(r.summary).toContain(`${r.overall} puan`);
+    expect(r.summary).toMatch(/Veri güvenilirliği:/);
   });
 
   it("ignores places with slugs outside the taxonomy", () => {

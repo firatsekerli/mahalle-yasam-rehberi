@@ -37,7 +37,7 @@ describe("buildNeighborhoodReport", () => {
   it("flags sample data and carries the honesty notice", () => {
     const r = build("general");
     expect(r.dataNotice.sample).toBe(true);
-    expect(r.dataNotice.message).toMatch(/sample prototype data/i);
+    expect(r.dataNotice.message).toMatch(/örnek prototip verisi/i);
   });
 
   it("caps confidence to experimental for sample data, however complete it looks", () => {

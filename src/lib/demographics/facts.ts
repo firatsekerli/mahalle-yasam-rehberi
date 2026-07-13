@@ -14,6 +14,7 @@ import {
   type AdminLevel,
   type TuikDemographicRecord,
 } from "@/lib/data/adapters/demographics";
+import { ADMIN_LEVEL_TR } from "@/lib/i18n/tr";
 
 export type FreshnessLabel = "current" | "recent" | "dated" | "stale";
 
@@ -110,27 +111,22 @@ export function buildDemographicFacts(
   return facts;
 }
 
-const LEVEL_NOUN: Record<AdminLevel, string> = {
-  province: "province",
-  district: "district",
-  neighborhood: "neighborhood",
-};
-
 /**
  * Deterministic plain-language statement of the facts (§15.8 — templates before
  * any LLM). States only what the record actually contains, always cites the
- * source and year, and never characterizes or infers.
+ * source and year, and never characterizes or infers. A neutral phrasing avoids
+ * Turkish case-suffix pitfalls with interpolated place names.
  */
 export function summarizeDemographics(facts: DemographicFacts): string {
   const parts: string[] = [
-    `As of the ${facts.referenceYear} official register (${facts.sourceDataset}), the ${LEVEL_NOUN[facts.adminLevel]} of ${facts.areaName} had a registered population of ${facts.totalPopulation.toLocaleString("en-US")}.`,
+    `${facts.referenceYear} resmî nüfus kaydına göre (${facts.sourceDataset}), ${facts.areaName} (${ADMIN_LEVEL_TR[facts.adminLevel]}) kayıtlı nüfusu ${facts.totalPopulation.toLocaleString("tr-TR")} olarak açıklandı.`,
   ];
   if (facts.averageHouseholdSize !== undefined) {
-    parts.push(`Average household size was ${facts.averageHouseholdSize}.`);
+    parts.push(`Ortalama hane büyüklüğü ${facts.averageHouseholdSize} idi.`);
   }
   if (facts.freshness.label === "dated" || facts.freshness.label === "stale") {
     parts.push(
-      `This figure is ${facts.freshness.ageYears} years old; more recent official data may be available.`,
+      `Bu veri ${facts.freshness.ageYears} yıl öncesine ait; daha güncel resmî veriler mevcut olabilir.`,
     );
   }
   return parts.join(" ");
