@@ -26,6 +26,8 @@ if (!url || !serviceKey) {
 }
 
 const RADIUS_M = 1200;
+/** Pause between neighborhoods so back-to-back heavy queries don't trip Overpass rate limits (429). */
+const BETWEEN_NEIGHBORHOODS_MS = 20_000;
 
 const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
 // Generous timeout — no Vercel function limit applies to the seed job.
@@ -55,7 +57,11 @@ async function fetchWithRetry(neighborhood: (typeof SAMPLE_NEIGHBORHOODS)[number
 
 let hadError = false;
 
-for (const n of SAMPLE_NEIGHBORHOODS) {
+for (let idx = 0; idx < SAMPLE_NEIGHBORHOODS.length; idx++) {
+  const n = SAMPLE_NEIGHBORHOODS[idx];
+  // Space out heavy queries — being polite to the shared Overpass server avoids
+  // the 429s that hit later neighborhoods when firing back-to-back.
+  if (idx > 0) await sleep(BETWEEN_NEIGHBORHOODS_MS);
   try {
     process.stdout.write(`Fetching ${n.name} (${n.slug})… `);
     const places = await fetchWithRetry(n);
