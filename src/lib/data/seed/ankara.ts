@@ -41,6 +41,15 @@ export const SAMPLE_NEIGHBORHOODS: NeighborhoodMeta[] = [
     boundaryConfidence: "experimental",
     isApproximate: true,
   },
+  {
+    slug: "ayranci",
+    name: "Ayrancı",
+    district: "Çankaya",
+    city: "Ankara",
+    centroid: { lat: 39.9045, lng: 32.864 },
+    boundaryConfidence: "experimental",
+    isApproximate: true,
+  },
 ];
 
 /** [categorySlug, metersNorth, metersEast] relative to the centroid. */
@@ -77,6 +86,22 @@ const BAHCELIEVLER_SPECS: Spec[] = [
   ["bank", 120, -90], ["atm", 50, 60], ["hairdresser", -80, 100],
 ];
 
+// Ayrancı: leafy residential Çankaya — good cafés, parks and daily essentials.
+const AYRANCI_SPECS: Spec[] = [
+  ["supermarket", 130, 70], ["grocery", -110, 90], ["grocery", 280, -160],
+  ["bakery", 90, -120], ["greengrocer", -180, 140], ["convenience", 55, 65],
+  ["butcher", 210, 120],
+  ["pharmacy", 100, -60], ["clinic", 420, 200], ["dentist", -170, 80],
+  ["restaurant", 120, 70], ["restaurant", -80, 160], ["cafe", -70, -60],
+  ["cafe", 240, 130], ["coffee_shop", 160, -90], ["breakfast", -140, 100],
+  ["bus_stop", 60, -40], ["bus_stop", -100, 130], ["taxi_stand", 190, 80],
+  ["primary_school", 330, -240], ["kindergarten", 170, 200],
+  ["gym", 220, -170], ["park", -280, 190], ["walking_path", 360, 240],
+  ["yoga_pilates", -210, -150],
+  ["veterinarian", 470, -300], ["pet_shop", -260, 150],
+  ["bank", 110, -80], ["atm", 45, 55], ["hairdresser", -75, 95], ["cargo", 200, -130],
+];
+
 function buildPlaces(centroid: GeoPoint, specs: Spec[], prefix: string): BaselinePlace[] {
   return specs.map(([categorySlug, north, east], i) => ({
     source: "osm",
@@ -92,12 +117,14 @@ function buildPlaces(centroid: GeoPoint, specs: Spec[], prefix: string): Baselin
 const PLACES_BY_SLUG: Record<string, BaselinePlace[]> = {
   kizilay: buildPlaces(SAMPLE_NEIGHBORHOODS[0].centroid, KIZILAY_SPECS, "kizilay"),
   bahcelievler: buildPlaces(SAMPLE_NEIGHBORHOODS[1].centroid, BAHCELIEVLER_SPECS, "bahcelievler"),
+  ayranci: buildPlaces(SAMPLE_NEIGHBORHOODS[2].centroid, AYRANCI_SPECS, "ayranci"),
 };
 
 /** Demographics are pending an official TÜİK import — never fabricated here. */
 export const SAMPLE_DEMOGRAPHICS: Record<string, TuikDemographicRecord | null> = {
   kizilay: null,
   bahcelievler: null,
+  ayranci: null,
 };
 
 export function getSampleNeighborhood(slug: string): NeighborhoodMeta | undefined {
