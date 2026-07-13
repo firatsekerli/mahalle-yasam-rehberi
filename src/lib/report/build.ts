@@ -40,9 +40,12 @@ export interface NeighborhoodMeta {
   isApproximate: boolean;
 }
 
-/** A nearby option surfaced in the report (§19.3 "top nearby options"). */
+/** A place surfaced in the report (§19.3, §31.1 business list). */
 export interface NearbyOption {
+  /** Best display name: the real business name, else the Turkish category label. */
   name: string;
+  /** True when `name` is a real business name (live data), not a category label. */
+  named: boolean;
   categorySlug: string;
   categoryName: string;
   distanceMeters: number;
@@ -61,11 +64,16 @@ export interface NeighborhoodReport {
   demographics: DemographicFacts | null;
   /** Closest options per score group, for the "top nearby" section. */
   highlights: ReportGroupHighlights[];
-  /** Total baseline places considered. */
+  /** Flat list of the nearest businesses, for the neighborhood business list (§31.1). */
+  businesses: NearbyOption[];
+  /** Total baseline places considered (may exceed `businesses.length`). */
   placeCount: number;
   /** Honesty banner state — true when data is prototype/sample, not live. */
   dataNotice: { sample: boolean; message: string };
 }
+
+/** Max businesses sent to the client for the list (the count still reports the true total). */
+const MAX_BUSINESSES = 150;
 
 export interface BuildReportArgs {
   neighborhood: NeighborhoodMeta;
@@ -119,19 +127,45 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
 
   const highlights = buildHighlights(withDistance, highlightsPerGroup);
 
+  // Flat nearest-first business list (§31.1). Only places that map to a tracked
+  // category; nearest MAX_BUSINESSES for a bounded payload.
+  const categorized = withDistance.filter(({ place }) => getCategory(place.categorySlug));
+  const businesses = categorized
+    .map(({ place, distanceMeters }) => toOption(place, distanceMeters))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, MAX_BUSINESSES);
+
   return {
     neighborhood,
     profile: { slug: profile.slug, name: profile.name, description: profile.description },
     score,
     demographics: demographics ? buildDemographicFacts(demographics, currentYear) : null,
     highlights,
-    placeCount: places.length,
+    businesses,
+    placeCount: categorized.length,
     dataNotice: {
       sample,
       message: sample
         ? "Bu rapor, gösterim amacıyla örnek prototip verisi kullanır — canlı kapsam değildir. Gerçek OpenStreetMap verileri içe aktarıldığında puanlar ve güvenilirlik değişecektir."
         : "Puanlar hâlihazırda mevcut verilere dayanır ve her işletmeyi veya son değişiklikleri içermeyebilir.",
     },
+  };
+}
+
+/**
+ * Build a display option from a baseline place. Uses the real business name when
+ * present; sample places carry their category slug as the name, so we fall back
+ * to the Turkish category label (never show a raw slug to the user).
+ */
+function toOption(place: BaselinePlace, distanceMeters: number): NearbyOption {
+  const categoryName = categoryNameTr(place.categorySlug);
+  const named = Boolean(place.name && place.name !== place.categorySlug);
+  return {
+    name: named ? place.name : categoryName,
+    named,
+    categorySlug: place.categorySlug,
+    categoryName,
+    distanceMeters,
   };
 }
 
@@ -144,12 +178,7 @@ function buildHighlights(
     const cat = getCategory(place.categorySlug);
     if (!cat) continue;
     const list = byGroup.get(cat.scoreGroup) ?? [];
-    list.push({
-      name: place.name,
-      categorySlug: place.categorySlug,
-      categoryName: categoryNameTr(place.categorySlug),
-      distanceMeters,
-    });
+    list.push(toOption(place, distanceMeters));
     byGroup.set(cat.scoreGroup, list);
   }
   const groups: ReportGroupHighlights[] = [];

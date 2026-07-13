@@ -17,7 +17,8 @@ export default async function NeighborhoodReportPage({
   const report = await getNeighborhoodReport(slug, profileSlug);
   if (!report) notFound();
 
-  const { neighborhood, score, profile, demographics, highlights, dataNotice } = report;
+  const { neighborhood, score, profile, demographics, highlights, businesses, placeCount, dataNotice } =
+    report;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
@@ -25,9 +26,13 @@ export default async function NeighborhoodReportPage({
         {T.common.allNeighborhoods}
       </Link>
 
-      {dataNotice.sample && (
+      {dataNotice.sample ? (
         <p className="mt-4 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
           <strong className="text-ink">{T.report.sampleDataLabel}</strong> {dataNotice.message}
+        </p>
+      ) : (
+        <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-500 bg-brand-100 px-3 py-1 text-xs font-medium text-brand-700">
+          <span aria-hidden>●</span> {T.report.liveData}
         </p>
       )}
 
@@ -129,8 +134,11 @@ export default async function NeighborhoodReportPage({
                 <ul className="mt-2 space-y-1 text-sm">
                   {g.options.map((o, i) => (
                     <li key={i} className="flex justify-between gap-4 text-muted">
-                      <span>{o.categoryName}</span>
-                      <span className="tabular-nums">≈ {o.distanceMeters} m</span>
+                      <span className="min-w-0 truncate">
+                        {o.name}
+                        {o.named && <span className="text-xs"> · {o.categoryName}</span>}
+                      </span>
+                      <span className="shrink-0 tabular-nums">≈ {o.distanceMeters} m</span>
                     </li>
                   ))}
                 </ul>
@@ -139,6 +147,31 @@ export default async function NeighborhoodReportPage({
           </div>
         </section>
       )}
+
+      {/* Neighborhood business list (§31.1) ------------------------------------ */}
+      <section className="mt-10">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-xl font-semibold">{T.report.businessesTitle}</h2>
+          <span className="text-xs text-muted">
+            {T.report.businessesCount(businesses.length, placeCount)}
+          </span>
+        </div>
+        {businesses.length > 0 ? (
+          <ul className="mt-4 divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
+            {businesses.map((b, i) => (
+              <li key={i} className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
+                <span className="min-w-0 truncate">
+                  <span className="font-medium">{b.name}</span>
+                  {b.named && <span className="text-muted"> · {b.categoryName}</span>}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted">≈ {b.distanceMeters} m</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-muted">{T.report.businessesEmpty}</p>
+        )}
+      </section>
 
       {/* Demographics (facts only, §12.5, §28) --------------------------------- */}
       <section className="mt-10">

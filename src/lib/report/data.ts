@@ -33,7 +33,9 @@ const OSM_RADIUS_M = 1200;
 /** Live OSM data changes slowly; cache a day to stay well within Overpass limits. */
 const OSM_REVALIDATE_SECONDS = 60 * 60 * 24;
 
-const osm = new OsmBaselineSource();
+// 8s keeps the whole request under Vercel's default function limit (Hobby ~10s),
+// so a slow Overpass triggers our sample fallback instead of a hard timeout.
+const osm = new OsmBaselineSource({ timeoutMs: 8_000 });
 
 /** Cached live fetch, keyed by slug + coordinates. */
 const fetchLiveCached = unstable_cache(
