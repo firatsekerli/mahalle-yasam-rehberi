@@ -71,18 +71,18 @@ describe("summarizeDemographics", () => {
     const s = summarizeDemographics(buildDemographicFacts(districtRecord, 2026));
     expect(s).toContain("2024");
     expect(s).toContain("TUIK ADNKS 2024 (fixture)");
-    expect(s).toContain("100,000");
-    expect(s).toContain("Average household size was 2.8");
+    expect(s).toContain("100.000"); // tr-TR grouping
+    expect(s).toContain("Ortalama hane büyüklüğü 2.8");
   });
 
   it("does not fabricate breakdowns that were not in the record", () => {
     const s = summarizeDemographics(buildDemographicFacts(mahalleRecord, 2026));
-    expect(s).toContain("8,000");
-    expect(s).not.toMatch(/household size/);
+    expect(s).toContain("8.000");
+    expect(s).not.toMatch(/hane büyüklüğü/);
   });
 
   it("flags staleness when the figure is old", () => {
     const s = summarizeDemographics(buildDemographicFacts(districtRecord, 2033));
-    expect(s).toMatch(/years old/);
+    expect(s).toMatch(/yıl öncesine ait/);
   });
 });

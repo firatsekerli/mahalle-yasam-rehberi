@@ -32,11 +32,13 @@ import {
 } from "./engine";
 import { DEFAULT_SCORING_CONFIG, type ScoringConfig, type WeightKey } from "./config";
 import {
-  SCORE_GROUPS,
   essentialCategoriesInGroup,
   getCategory,
+  scoreGroupNameTr,
+  categoryNameTr,
   type ScoreGroup,
 } from "@/lib/taxonomy/categories";
+import { WEIGHT_LABEL_TR, CONFIDENCE_LABEL_TR, scoreBandTr } from "@/lib/i18n/tr";
 
 /** WeightKey → the ScoreGroup that feeds it, or null for derived dimensions. */
 const WEIGHT_GROUP: Record<WeightKey, ScoreGroup | null> = {
@@ -108,7 +110,7 @@ function missingEssentialNames(
   );
   return essentialCategoriesInGroup(group)
     .filter((c) => !reachableSlugs.has(c.slug))
-    .map((c) => c.name);
+    .map((c) => categoryNameTr(c.slug));
 }
 
 /** Score one place-based ScoreGroup, applying the missing-essential penalty. */
@@ -140,7 +142,7 @@ function businessQualityDimension(
   if (reachableRated.length === 0) {
     return {
       weightKey: "business_quality",
-      name: "Business quality and reliability",
+      name: WEIGHT_LABEL_TR.business_quality,
       score: null,
       weight,
       available: false,
@@ -198,7 +200,7 @@ export function scoreNeighborhood(
       // Derived from operating hours — not in the OSM baseline (§13).
       dimensions.push({
         weightKey,
-        name: SCORE_GROUPS.late_hour_convenience.name,
+        name: WEIGHT_LABEL_TR.late_hour_convenience,
         score: null,
         weight,
         available: false,
@@ -212,7 +214,7 @@ export function scoreNeighborhood(
     const { score, missingEssentials, breakdown } = scoreGroup(g, gp, cfg);
     dimensions.push({
       weightKey,
-      name: SCORE_GROUPS[g].name,
+      name: WEIGHT_LABEL_TR[weightKey],
       score,
       weight,
       available: true,
@@ -236,7 +238,7 @@ export function scoreNeighborhood(
   const contextDimensions: DimensionScore[] = [
     {
       weightKey: "business_quality", // nominal; not used for weighting here
-      name: SCORE_GROUPS.personal_household.name,
+      name: scoreGroupNameTr("personal_household"),
       score: ph.score,
       weight: 0,
       available: true,
@@ -350,8 +352,7 @@ function buildSummary(
   confidence: ConfidenceScore,
   missingServices: string[],
 ): string {
-  const band =
-    overall >= 80 ? "excellent" : overall >= 65 ? "strong" : overall >= 45 ? "moderate" : "limited";
+  const band = scoreBandTr(overall);
   const scored = dimensions.filter(
     (d): d is DimensionScore & { score: number } => d.available && d.score !== null,
   );
@@ -359,17 +360,17 @@ function buildSummary(
   const worst = [...scored].sort((a, b) => a.score - b.score)[0];
 
   const parts: string[] = [
-    `This neighborhood has ${band} daily-life coverage, scoring ${overall}/100.`,
+    `Bu mahalle günlük yaşam açısından ${band} bir erişime sahip ve 100 üzerinden ${overall} puan aldı.`,
   ];
-  if (best) parts.push(`It is strongest for ${best.name.toLowerCase()} (${best.score}/100).`);
+  if (best) parts.push(`En güçlü olduğu alan: ${best.name} (${best.score}/100).`);
   if (worst && best && worst.weightKey !== best.weightKey) {
-    parts.push(`Its weakest everyday dimension is ${worst.name.toLowerCase()} (${worst.score}/100).`);
+    parts.push(`En zayıf günlük alanı: ${worst.name} (${worst.score}/100).`);
   }
   if (missingServices.length > 0) {
-    parts.push(`Missing nearby essentials: ${missingServices.join(", ")}.`);
+    parts.push(`Yakında eksik temel hizmetler: ${missingServices.join(", ")}.`);
   }
   parts.push(
-    `Data confidence is ${confidence.label} — the score reflects currently available data and may not include every business or recent change.`,
+    `Veri güvenilirliği: ${CONFIDENCE_LABEL_TR[confidence.label]}. Puan, hâlihazırda mevcut verilere dayanır ve her işletmeyi veya son değişiklikleri içermeyebilir.`,
   );
   return parts.join(" ");
 }

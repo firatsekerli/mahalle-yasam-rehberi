@@ -127,6 +127,92 @@ export function getCategory(slug: string): CategoryDef | undefined {
   return BY_SLUG.get(slug);
 }
 
+/**
+ * Turkish display names (CLAUDE.md — Turkey-first). English `name` above stays
+ * the canonical/DB value; these are the launch-language labels for the UI.
+ */
+export const SCORE_GROUP_NAME_TR: Record<ScoreGroup, string> = {
+  daily_essentials: "Günlük temel ihtiyaçlar",
+  health_wellbeing: "Sağlık ve iyi yaşam",
+  transport_mobility: "Ulaşım ve hareketlilik",
+  family_education: "Aile ve eğitim",
+  food_social: "Yeme-içme ve sosyal yaşam",
+  fitness_recreation: "Spor ve rekreasyon",
+  pet_services: "Evcil hayvan hizmetleri",
+  personal_household: "Kişisel ve ev hizmetleri",
+  late_hour_convenience: "Geç saat kolaylığı",
+};
+
+export const CATEGORY_NAME_TR: Record<string, string> = {
+  supermarket: "Süpermarket",
+  grocery: "Market / bakkal",
+  convenience: "Büfe / market",
+  bakery: "Fırın",
+  butcher: "Kasap",
+  greengrocer: "Manav",
+  water_supplier: "Su tedarikçisi",
+  shopping_center: "Alışveriş merkezi",
+  pharmacy: "Eczane",
+  hospital: "Hastane",
+  clinic: "Klinik / poliklinik",
+  family_health_center: "Aile sağlığı merkezi",
+  dentist: "Diş hekimi",
+  laboratory: "Laboratuvar",
+  optician: "Optik",
+  physiotherapy: "Fizik tedavi merkezi",
+  psychologist: "Psikolog / danışmanlık",
+  restaurant: "Restoran",
+  cafe: "Kafe",
+  coffee_shop: "Kahveci",
+  fast_food: "Fast food",
+  dessert: "Tatlıcı",
+  breakfast: "Kahvaltı mekânı",
+  nursery: "Kreş",
+  kindergarten: "Anaokulu",
+  primary_school: "İlkokul",
+  secondary_school: "Ortaokul",
+  high_school: "Lise",
+  tutoring: "Etüt / kurs merkezi",
+  library: "Kütüphane",
+  playground: "Oyun parkı",
+  kids_activity: "Çocuk aktivite merkezi",
+  metro_station: "Metro istasyonu",
+  train_station: "Tren istasyonu",
+  bus_stop: "Otobüs durağı",
+  taxi_stand: "Taksi durağı",
+  bicycle_infra: "Bisiklet altyapısı",
+  parking: "Otopark",
+  gym: "Spor salonu",
+  sports_center: "Spor merkezi",
+  swimming_pool: "Yüzme havuzu",
+  park: "Park",
+  walking_path: "Yürüyüş yolu",
+  sports_field: "Spor sahası",
+  yoga_pilates: "Yoga / pilates stüdyosu",
+  veterinarian: "Veteriner",
+  pet_shop: "Pet shop",
+  pet_grooming: "Evcil hayvan bakımı",
+  dog_park: "Köpek parkı",
+  hairdresser: "Kuaför",
+  barber: "Berber",
+  dry_cleaning: "Kuru temizleme",
+  tailor: "Terzi",
+  repair: "Tamir servisi",
+  bank: "Banka",
+  atm: "ATM",
+  cargo: "Kargo / posta",
+};
+
+/** Turkish display name for a category slug, falling back to the slug. */
+export function categoryNameTr(slug: string): string {
+  return CATEGORY_NAME_TR[slug] ?? slug;
+}
+
+/** Turkish display name for a score group. */
+export function scoreGroupNameTr(group: ScoreGroup): string {
+  return SCORE_GROUP_NAME_TR[group];
+}
+
 export function categoriesInGroup(group: ScoreGroup): CategoryDef[] {
   return CATEGORIES.filter((c) => c.scoreGroup === group);
 }

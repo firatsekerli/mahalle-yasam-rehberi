@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getNeighborhoodReport } from "@/lib/report/data";
 import { LIFESTYLE_PROFILES } from "@/lib/scoring/profiles";
 import type { DimensionScore } from "@/lib/scoring/neighborhood";
+import { T, CONFIDENCE_LABEL_TR, FRESHNESS_LABEL_TR, ADMIN_LEVEL_TR } from "@/lib/i18n/tr";
 
 export default async function NeighborhoodReportPage({
   params,
@@ -21,12 +22,12 @@ export default async function NeighborhoodReportPage({
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
       <Link href="/" className="text-sm text-brand-600 hover:underline">
-        ← All neighborhoods
+        {T.common.allNeighborhoods}
       </Link>
 
       {dataNotice.sample && (
         <p className="mt-4 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-          <strong className="text-ink">Sample data.</strong> {dataNotice.message}
+          <strong className="text-ink">{T.report.sampleDataLabel}</strong> {dataNotice.message}
         </p>
       )}
 
@@ -38,23 +39,24 @@ export default async function NeighborhoodReportPage({
             {neighborhood.district} · {neighborhood.city}
             {neighborhood.isApproximate && (
               <span className="ml-2 rounded bg-surface-2 px-2 py-0.5 text-xs">
-                approximate boundary
+                {T.common.approximateBoundary}
               </span>
             )}
           </p>
         </div>
         <div className="text-right">
           <div className="text-5xl font-semibold tabular-nums">{score.overall}</div>
-          <div className="text-xs uppercase tracking-wide text-muted">Neighborhood Life Score / 100</div>
+          <div className="text-xs uppercase tracking-wide text-muted">{T.report.scoreLabel}</div>
           <div className={`mt-1 text-sm font-medium confidence-${score.confidence.label}`}>
-            {labelText(score.confidence.label)} data confidence · {score.confidence.score}/100
+            {capitalize(CONFIDENCE_LABEL_TR[score.confidence.label])} {T.common.dataConfidence} ·{" "}
+            {score.confidence.score}/100
           </div>
         </div>
       </header>
 
       {/* Lifestyle profile selector (§9.2) ------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-sm font-medium text-muted">Lifestyle profile</h2>
+        <h2 className="text-sm font-medium text-muted">{T.report.lifestyleProfile}</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           {LIFESTYLE_PROFILES.map((p) => {
             const active = p.slug === profile.slug;
@@ -73,7 +75,9 @@ export default async function NeighborhoodReportPage({
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-muted">{profile.description} Weights change; the facts do not.</p>
+        <p className="mt-2 text-xs text-muted">
+          {profile.description} {T.report.lifestyleNote}
+        </p>
       </section>
 
       {/* Summary --------------------------------------------------------------- */}
@@ -81,22 +85,31 @@ export default async function NeighborhoodReportPage({
 
       {/* Strengths / weaknesses / missing -------------------------------------- */}
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <ListCard title="Strengths" items={score.strengths} tone="good" empty="No standout strengths yet." />
-        <ListCard title="Weaknesses" items={score.weaknesses} tone="warn" empty="No major weaknesses." />
         <ListCard
-          title="Missing nearby essentials"
+          title={T.report.strengths}
+          items={score.strengths}
+          tone="good"
+          empty={T.report.noStrengths}
+        />
+        <ListCard
+          title={T.report.weaknesses}
+          items={score.weaknesses}
+          tone="warn"
+          empty={T.report.noWeaknesses}
+        />
+        <ListCard
+          title={T.report.missingEssentials}
           items={score.missingServices}
           tone="warn"
-          empty="All essentials covered nearby."
+          empty={T.report.allEssentials}
         />
       </section>
 
       {/* Category dimensions --------------------------------------------------- */}
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Category scores</h2>
+        <h2 className="text-xl font-semibold">{T.report.categoryScores}</h2>
         <p className="mt-1 text-sm text-muted">
-          Weighted for the {profile.name.toLowerCase()} profile. Distances are straight-line from the
-          neighborhood center (not a walking route).
+          {profile.name} {T.report.categoryNote}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {score.dimensions.map((d) => (
@@ -108,7 +121,7 @@ export default async function NeighborhoodReportPage({
       {/* Top nearby options ---------------------------------------------------- */}
       {highlights.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-xl font-semibold">Top nearby options</h2>
+          <h2 className="text-xl font-semibold">{T.report.topNearby}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {highlights.map((g) => (
               <div key={g.group} className="rounded-[var(--radius-card)] border border-line p-4">
@@ -129,45 +142,43 @@ export default async function NeighborhoodReportPage({
 
       {/* Demographics (facts only, §12.5, §28) --------------------------------- */}
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">Demographics</h2>
+        <h2 className="text-xl font-semibold">{T.report.demographics}</h2>
         {demographics ? (
           <div className="mt-3 rounded-[var(--radius-card)] border border-line p-5">
             <p className="text-2xl font-semibold tabular-nums">
-              {demographics.totalPopulation.toLocaleString("en-US")}
+              {demographics.totalPopulation.toLocaleString("tr-TR")}
             </p>
             <p className="text-sm text-muted">
-              registered population · {demographics.areaName} ({demographics.adminLevel})
+              {T.report.registeredPopulation} · {demographics.areaName} (
+              {ADMIN_LEVEL_TR[demographics.adminLevel]})
             </p>
             {demographics.averageHouseholdSize !== undefined && (
-              <p className="mt-2 text-sm">Average household size: {demographics.averageHouseholdSize}</p>
+              <p className="mt-2 text-sm">
+                {T.report.avgHousehold} {demographics.averageHouseholdSize}
+              </p>
             )}
             <p className="mt-3 text-xs text-muted">
-              {demographics.attribution} · {demographics.sourceDataset} · {demographics.freshness.label}
+              {demographics.attribution} · {demographics.sourceDataset} ·{" "}
+              {FRESHNESS_LABEL_TR[demographics.freshness.label]}
             </p>
           </div>
         ) : (
           <p className="mt-3 rounded-[var(--radius-card)] border border-dashed border-line p-5 text-sm text-muted">
-            Official population figures are not yet imported for this area. They will be sourced only from{" "}
-            <strong className="text-ink">TÜİK ADNKS</strong> (Türkiye İstatistik Kurumu, Address-Based
-            Population Registration System) and shown as attributed, dated facts — never estimated, and never
-            used to change the score.
+            {T.report.demographicsPending}
           </p>
         )}
       </section>
 
       {/* Footer attribution ---------------------------------------------------- */}
       <footer className="mt-12 border-t border-line pt-6 text-xs text-muted">
-        <p>
-          Place data © OpenStreetMap contributors. Scoring version {score.scoringVersion}. Scores reflect
-          currently available data and do not claim to include every business.
-        </p>
+        <p>{T.report.footer(score.scoringVersion)}</p>
       </footer>
     </main>
   );
 }
 
-function labelText(label: string): string {
-  return label.charAt(0).toUpperCase() + label.slice(1);
+function capitalize(s: string): string {
+  return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
 }
 
 function DimensionCard({ d }: { d: DimensionScore }) {
@@ -176,7 +187,9 @@ function DimensionCard({ d }: { d: DimensionScore }) {
     <div className="rounded-[var(--radius-card)] border border-line p-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-sm font-semibold">{d.name}</h3>
-        <span className="text-xs text-muted">weight {Math.round(d.weight * 100)}%</span>
+        <span className="text-xs text-muted">
+          {T.report.weight} {Math.round(d.weight * 100)}%
+        </span>
       </div>
       {d.available && d.score !== null ? (
         <>
@@ -187,13 +200,11 @@ function DimensionCard({ d }: { d: DimensionScore }) {
             <span className="w-10 text-right text-sm font-medium tabular-nums">{d.score}</span>
           </div>
           {d.missingEssentials.length > 0 && (
-            <p className="mt-2 text-xs text-muted">Missing: {d.missingEssentials.join(", ")}</p>
+            <p className="mt-2 text-xs text-muted">Eksik: {d.missingEssentials.join(", ")}</p>
           )}
         </>
       ) : (
-        <p className="mt-2 text-xs text-muted">
-          Not yet available — needs data we don&apos;t have yet (kept out of the score, not counted as zero).
-        </p>
+        <p className="mt-2 text-xs text-muted">{T.report.unavailable}</p>
       )}
     </div>
   );

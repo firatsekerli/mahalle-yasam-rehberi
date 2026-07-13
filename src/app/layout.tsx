@@ -3,11 +3,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Neighborhood Life — What is daily life like in this neighborhood?",
-    template: "%s · Neighborhood Life",
+    default: "Mahalle Yaşam — Bu mahallede günlük yaşam nasıl?",
+    template: "%s · Mahalle Yaşam",
   },
   description:
-    "Before you rent or buy, see how easily a neighborhood covers your daily needs — groceries, health, transport, food, family, pets and more — with an explainable, personalized score.",
+    "Kiralamadan veya satın almadan önce, bir mahallenin günlük ihtiyaçlarınızı — market, sağlık, ulaşım, yeme-içme, aile, evcil hayvan ve daha fazlasını — ne kadar kolay karşıladığını açıklanabilir, kişiselleştirilmiş bir puanla görün.",
   metadataBase: new URL("https://neighborhoodlife.local"),
 };
 

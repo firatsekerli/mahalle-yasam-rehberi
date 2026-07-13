@@ -22,7 +22,12 @@ import {
   buildDemographicFacts,
   type DemographicFacts,
 } from "@/lib/demographics/facts";
-import { getCategory, SCORE_GROUPS, type ScoreGroup } from "@/lib/taxonomy/categories";
+import {
+  getCategory,
+  scoreGroupNameTr,
+  categoryNameTr,
+  type ScoreGroup,
+} from "@/lib/taxonomy/categories";
 
 export interface NeighborhoodMeta {
   slug: string;
@@ -124,8 +129,8 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     dataNotice: {
       sample,
       message: sample
-        ? "This report uses sample prototype data for demonstration — not live coverage. Scores and confidence will change once real OpenStreetMap data is imported."
-        : "Scores are based on currently available data and may not include every business or recent change.",
+        ? "Bu rapor, gösterim amacıyla örnek prototip verisi kullanır — canlı kapsam değildir. Gerçek OpenStreetMap verileri içe aktarıldığında puanlar ve güvenilirlik değişecektir."
+        : "Puanlar hâlihazırda mevcut verilere dayanır ve her işletmeyi veya son değişiklikleri içermeyebilir.",
     },
   };
 }
@@ -142,7 +147,7 @@ function buildHighlights(
     list.push({
       name: place.name,
       categorySlug: place.categorySlug,
-      categoryName: cat.name,
+      categoryName: categoryNameTr(place.categorySlug),
       distanceMeters,
     });
     byGroup.set(cat.scoreGroup, list);
@@ -152,7 +157,7 @@ function buildHighlights(
     options.sort((a, b) => a.distanceMeters - b.distanceMeters);
     groups.push({
       group,
-      groupName: SCORE_GROUPS[group].name,
+      groupName: scoreGroupNameTr(group),
       options: options.slice(0, perGroup),
     });
   }
