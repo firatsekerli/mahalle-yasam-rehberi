@@ -1,18 +1,18 @@
 /**
- * Report data access (CLAUDE.md §29 step 9, §12.1 prototype flow).
+ * Report data access (CLAUDE.md §29 step 9, §15.4).
  *
- * Single entry point the report page calls. It fetches REAL places from
- * OpenStreetMap (Overpass) for the neighborhood, cached server-side to respect
- * Overpass usage limits, and falls back to the sample dataset if live data is
- * unavailable (offline dev, rate limit, network policy). Set `DATA_SOURCE=sample`
- * to force the sample dataset.
- *
- * Neighborhood definitions (centroid + metadata) come from the seed registry;
- * moving them to a PostGIS `neighborhoods` table later doesn't change this API.
+ * Single entry point the report page calls. Places are resolved in order:
+ *   1. Supabase `osm_places` (seeded real data — the reliable production path)
+ *   2. live OpenStreetMap (Overpass) as a fallback for un-seeded neighborhoods
+ *   3. the sample dataset, so a report is never blank
+ * Both real sources are cached server-side. Set `DATA_SOURCE=sample` to force
+ * the sample dataset. Neighborhood definitions come from the seed registry;
+ * moving them to a `neighborhoods` table later doesn't change this API.
  */
 
 import { unstable_cache } from "next/cache";
 import { OsmBaselineSource } from "@/lib/data/adapters/osm";
+import { fetchNeighborhoodPlacesFromDb, supabaseConfigured } from "@/lib/data/adapters/osm-db";
 import type { BaselinePlace } from "@/lib/data/adapters/types";
 import { buildNeighborhoodReport, type NeighborhoodMeta, type NeighborhoodReport } from "./build";
 import { resolveNeighborhoodPlaces } from "./source";
@@ -27,23 +27,29 @@ import {
 /** Reference year for demographic freshness; injectable for tests. */
 const CURRENT_YEAR = 2026;
 
-/** Radius around the centroid to collect places (meters) — matches reachable band. */
+/** Radius around the centroid to collect live places (meters) — matches reachable band. */
 const OSM_RADIUS_M = 1200;
 
-/** Live OSM data changes slowly; cache a day to stay well within Overpass limits. */
+/** Live OSM changes slowly; cache a day to stay well within Overpass limits. */
 const OSM_REVALIDATE_SECONDS = 60 * 60 * 24;
+/** Seeded DB is authoritative but re-seeded periodically; a short cache is plenty. */
+const DB_REVALIDATE_SECONDS = 60 * 60;
 
 // 8s keeps the whole request under Vercel's default function limit (Hobby ~10s),
-// so a slow Overpass triggers our sample fallback instead of a hard timeout.
+// so a slow Overpass triggers the next source instead of a hard timeout.
 const osm = new OsmBaselineSource({ timeoutMs: 8_000 });
 
-/** Cached live fetch, keyed by slug + coordinates. */
 const fetchLiveCached = unstable_cache(
-  async (_slug: string, lat: number, lng: number): Promise<BaselinePlace[]> => {
-    return osm.fetchNearby({ lat, lng }, OSM_RADIUS_M);
-  },
+  async (_slug: string, lat: number, lng: number): Promise<BaselinePlace[]> =>
+    osm.fetchNearby({ lat, lng }, OSM_RADIUS_M),
   ["osm-neighborhood-places"],
   { revalidate: OSM_REVALIDATE_SECONDS },
+);
+
+const fetchDbCached = unstable_cache(
+  async (slug: string): Promise<BaselinePlace[]> => fetchNeighborhoodPlacesFromDb(slug),
+  ["osm-db-neighborhood-places"],
+  { revalidate: DB_REVALIDATE_SECONDS },
 );
 
 function forceSample(): boolean {
@@ -67,7 +73,12 @@ export async function getNeighborhoodReport(
   if (!neighborhood) return null;
 
   const { places, sample } = await resolveNeighborhoodPlaces(neighborhood, {
-    fetchLive: (n: NeighborhoodMeta) => fetchLiveCached(n.slug, n.centroid.lat, n.centroid.lng),
+    realSources: [
+      // 1. Supabase-seeded real data (only when configured).
+      supabaseConfigured() ? (n: NeighborhoodMeta) => fetchDbCached(n.slug) : null,
+      // 2. Live OSM fallback for un-seeded neighborhoods.
+      (n: NeighborhoodMeta) => fetchLiveCached(n.slug, n.centroid.lat, n.centroid.lng),
+    ],
     getSample: getSamplePlaces,
     forceSample: forceSample(),
   });

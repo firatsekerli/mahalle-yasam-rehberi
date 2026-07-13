@@ -13,47 +13,89 @@ const neighborhood: NeighborhoodMeta = {
   isApproximate: true,
 };
 
-const livePlace: BaselinePlace = {
+const place = (id: string, name: string): BaselinePlace => ({
   source: "osm",
-  sourceId: "node/1",
-  name: "Eczane",
+  sourceId: id,
+  name,
   categorySlug: "pharmacy",
   location: { lat: 39.9209, lng: 32.8542 },
   sourceTimestamp: "2026-07-12T00:00:00.000Z",
-};
+});
 
-const samplePlace: BaselinePlace = { ...livePlace, sourceId: "sample/kizilay-0", name: "pharmacy" };
+const dbPlace = place("db/1", "Eczane (DB)");
+const livePlace = place("node/1", "Eczane (live)");
+const samplePlace = place("sample/kizilay-0", "pharmacy");
 const getSample = () => [samplePlace];
 
 describe("resolveNeighborhoodPlaces", () => {
-  it("uses live OSM data when available (sample=false)", async () => {
-    const fetchLive = vi.fn(async () => [livePlace]);
-    const r = await resolveNeighborhoodPlaces(neighborhood, { fetchLive, getSample, forceSample: false });
+  it("prefers the first real source (DB) when it returns data", async () => {
+    const db = vi.fn(async () => [dbPlace]);
+    const live = vi.fn(async () => [livePlace]);
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [db, live],
+      getSample,
+      forceSample: false,
+    });
+    expect(r.sample).toBe(false);
+    expect(r.places).toEqual([dbPlace]);
+    expect(live).not.toHaveBeenCalled();
+  });
+
+  it("falls through to the next real source when the first is empty", async () => {
+    const db = vi.fn(async () => []);
+    const live = vi.fn(async () => [livePlace]);
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [db, live],
+      getSample,
+      forceSample: false,
+    });
     expect(r.sample).toBe(false);
     expect(r.places).toEqual([livePlace]);
-    expect(fetchLive).toHaveBeenCalledOnce();
   });
 
-  it("falls back to sample when live throws (never a blank report)", async () => {
-    const fetchLive = vi.fn(async () => {
-      throw new Error("Overpass API error 429 Too Many Requests");
+  it("skips a throwing source and tries the next", async () => {
+    const db = vi.fn(async () => {
+      throw new Error("Supabase down");
     });
-    const r = await resolveNeighborhoodPlaces(neighborhood, { fetchLive, getSample, forceSample: false });
+    const live = vi.fn(async () => [livePlace]);
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [db, live],
+      getSample,
+      forceSample: false,
+    });
+    expect(r.sample).toBe(false);
+    expect(r.places).toEqual([livePlace]);
+  });
+
+  it("falls back to sample when every real source fails or is empty", async () => {
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [async () => [], async () => { throw new Error("x"); }],
+      getSample,
+      forceSample: false,
+    });
     expect(r.sample).toBe(true);
     expect(r.places).toEqual([samplePlace]);
   });
 
-  it("falls back to sample when live returns empty", async () => {
-    const fetchLive = vi.fn(async () => []);
-    const r = await resolveNeighborhoodPlaces(neighborhood, { fetchLive, getSample, forceSample: false });
-    expect(r.sample).toBe(true);
-    expect(r.places).toEqual([samplePlace]);
+  it("ignores falsy source entries (e.g. DB not configured)", async () => {
+    const live = vi.fn(async () => [livePlace]);
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [null, false, undefined, live],
+      getSample,
+      forceSample: false,
+    });
+    expect(r.sample).toBe(false);
+    expect(r.places).toEqual([livePlace]);
   });
 
-  it("skips live entirely when forceSample is set", async () => {
-    const fetchLive = vi.fn(async () => [livePlace]);
-    const r = await resolveNeighborhoodPlaces(neighborhood, { fetchLive, getSample, forceSample: true });
+  it("skips all real sources when forceSample is set", async () => {
+    const live = vi.fn(async () => [livePlace]);
+    const r = await resolveNeighborhoodPlaces(neighborhood, {
+      realSources: [live],
+      getSample,
+      forceSample: true,
+    });
     expect(r.sample).toBe(true);
-    expect(fetchLive).not.toHaveBeenCalled();
+    expect(live).not.toHaveBeenCalled();
   });
 });
