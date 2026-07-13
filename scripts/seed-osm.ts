@@ -31,12 +31,34 @@ const supabase = createClient(url, serviceKey, { auth: { persistSession: false }
 // Generous timeout — no Vercel function limit applies to the seed job.
 const osm = new OsmBaselineSource({ timeoutMs: 60_000 });
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Overpass 504/429s under load on dense areas (e.g. central Kızılay). Retry with
+ * backoff — the seed has no time limit, so give the server time to recover.
+ */
+async function fetchWithRetry(neighborhood: (typeof SAMPLE_NEIGHBORHOODS)[number]) {
+  const backoffs = [5_000, 15_000, 30_000, 45_000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await osm.fetchNearby(neighborhood.centroid, RADIUS_M);
+    } catch (err) {
+      if (attempt >= backoffs.length) throw err;
+      const wait = backoffs[attempt];
+      console.log(
+        `\n  ${neighborhood.slug}: ${err instanceof Error ? err.message : String(err)} — retrying in ${wait / 1000}s (attempt ${attempt + 2}/${backoffs.length + 1})`,
+      );
+      await sleep(wait);
+    }
+  }
+}
+
 let hadError = false;
 
 for (const n of SAMPLE_NEIGHBORHOODS) {
   try {
     process.stdout.write(`Fetching ${n.name} (${n.slug})… `);
-    const places = await osm.fetchNearby(n.centroid, RADIUS_M);
+    const places = await fetchWithRetry(n);
     const rows = places.map((p) => ({
       neighborhood_slug: n.slug,
       source_id: p.sourceId,
