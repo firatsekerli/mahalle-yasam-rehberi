@@ -1,13 +1,21 @@
 /**
- * Report data access (CLAUDE.md §29 step 9).
+ * Report data access (CLAUDE.md §29 step 9, §12.1 prototype flow).
  *
- * The single entry point the report page calls. Today it reads the sample
- * prototype dataset; when the worker import lands it will read the live OSM
- * baseline + demographics from PostGIS behind this same function, so the page
- * and view model don't change (§28 — sources sit behind adapters).
+ * Single entry point the report page calls. It fetches REAL places from
+ * OpenStreetMap (Overpass) for the neighborhood, cached server-side to respect
+ * Overpass usage limits, and falls back to the sample dataset if live data is
+ * unavailable (offline dev, rate limit, network policy). Set `DATA_SOURCE=sample`
+ * to force the sample dataset.
+ *
+ * Neighborhood definitions (centroid + metadata) come from the seed registry;
+ * moving them to a PostGIS `neighborhoods` table later doesn't change this API.
  */
 
-import { buildNeighborhoodReport, type NeighborhoodReport } from "./build";
+import { unstable_cache } from "next/cache";
+import { OsmBaselineSource } from "@/lib/data/adapters/osm";
+import type { BaselinePlace } from "@/lib/data/adapters/types";
+import { buildNeighborhoodReport, type NeighborhoodMeta, type NeighborhoodReport } from "./build";
+import { resolveNeighborhoodPlaces } from "./source";
 import { getProfile } from "@/lib/scoring/profiles";
 import {
   SAMPLE_NEIGHBORHOODS,
@@ -18,6 +26,27 @@ import {
 
 /** Reference year for demographic freshness; injectable for tests. */
 const CURRENT_YEAR = 2026;
+
+/** Radius around the centroid to collect places (meters) — matches reachable band. */
+const OSM_RADIUS_M = 1200;
+
+/** Live OSM data changes slowly; cache a day to stay well within Overpass limits. */
+const OSM_REVALIDATE_SECONDS = 60 * 60 * 24;
+
+const osm = new OsmBaselineSource();
+
+/** Cached live fetch, keyed by slug + coordinates. */
+const fetchLiveCached = unstable_cache(
+  async (_slug: string, lat: number, lng: number): Promise<BaselinePlace[]> => {
+    return osm.fetchNearby({ lat, lng }, OSM_RADIUS_M);
+  },
+  ["osm-neighborhood-places"],
+  { revalidate: OSM_REVALIDATE_SECONDS },
+);
+
+function forceSample(): boolean {
+  return process.env.DATA_SOURCE === "sample";
+}
 
 export function listReportNeighborhoods() {
   return SAMPLE_NEIGHBORHOODS.map((n) => ({
@@ -35,7 +64,12 @@ export async function getNeighborhoodReport(
   const neighborhood = getSampleNeighborhood(slug);
   if (!neighborhood) return null;
 
-  const places = getSamplePlaces(slug);
+  const { places, sample } = await resolveNeighborhoodPlaces(neighborhood, {
+    fetchLive: (n: NeighborhoodMeta) => fetchLiveCached(n.slug, n.centroid.lat, n.centroid.lng),
+    getSample: getSamplePlaces,
+    forceSample: forceSample(),
+  });
+
   const demographics = SAMPLE_DEMOGRAPHICS[slug] ?? null;
   const profile = getProfile(profileSlug);
 
@@ -45,6 +79,6 @@ export async function getNeighborhoodReport(
     demographics,
     profile,
     currentYear: CURRENT_YEAR,
-    sample: true,
+    sample,
   });
 }

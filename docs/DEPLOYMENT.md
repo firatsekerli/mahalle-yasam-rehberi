@@ -48,7 +48,14 @@ Every future PR gets an automatic **preview URL** — useful for review.
 
 ## Phase 1 — Real open data ($0 in API costs)
 
-Replace the sample seed with real OpenStreetMap data in Supabase. No paid APIs.
+> **Already live in the app:** the report fetches **real** OpenStreetMap places
+> via Overpass at request time (cached a day), with a graceful fallback to sample
+> data. On Vercel this shows real Ankara data with **no Supabase required**. Set
+> `DATA_SOURCE=sample` to force the sample dataset. The steps below move that data
+> into PostGIS for scale, dedup and persistence.
+
+Replace the on-demand Overpass fetch with imported OpenStreetMap data in Supabase.
+No paid APIs.
 
 1. **Create a Supabase project** (Free tier is fine to start).
 2. **Run the migrations** in `supabase/migrations/` in order (0001→0004) via the

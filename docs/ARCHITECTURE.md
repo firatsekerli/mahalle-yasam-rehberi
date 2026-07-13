@@ -68,6 +68,21 @@ is out of scope, §18.3).
 - Finer breakdowns (age/sex/household) exist mostly at province/district level;
   at mahalle level they're commonly absent and are left null, not interpolated.
 
+### Live OSM data with a sample fallback (§12.1, §15.5 prototype flow)
+
+The report fetches **real** places from OpenStreetMap (Overpass) around the
+neighborhood centroid, server-side, cached a day via `unstable_cache` to respect
+Overpass limits. `src/lib/report/source.ts` resolves the source: on any live
+error or an empty result it falls back to the clearly-labeled sample dataset, so
+a report is never blank. `DATA_SOURCE=sample` forces the sample dataset.
+
+- Live results render with real data confidence; sample results are capped to
+  "experimental" and show the honesty banner (§13).
+- No database is required for this prototype — neighborhoods come from the seed
+  registry. Moving places/neighborhoods into PostGIS later doesn't change
+  `getNeighborhoodReport`'s signature (the page is unaffected).
+- The Overpass fetch has a 15s timeout so a slow endpoint can't stall a render.
+
 ### Data model
 
 Canonical `places` are source-independent; `place_source_references` preserves
@@ -77,8 +92,9 @@ never presented as official when approximate (§12.2). Scores are stored per
 
 ## Open items (next steps)
 
+- Persist OSM places into PostGIS (worker import) for scale + dedup, replacing
+  the on-demand Overpass fetch (§29 step 5); reuse the same taxonomy mapping.
 - Geospatial query helpers (address + radius) over PostGIS (§29 step 7).
-- Wire the OSM Overpass prototype in the worker and normalize tags (§29 step 5–6).
-- Neighborhood report page consuming real scores (§29 step 9).
-- Comparison page (§29 step 10) and confidence indicators (§29 step 11).
+- Comparison page (§29 step 10).
+- Address search + geocoding, and the interactive map (§29, deployment Phase 3).
 - Admin screen for places/duplicates (§29 step 12).
