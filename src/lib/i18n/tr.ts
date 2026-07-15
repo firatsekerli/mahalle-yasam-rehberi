@@ -102,6 +102,7 @@ export const T = {
     noResults: "Sonuç bulunamadı.",
     fromMap: "Haritadan seç",
     createReport: "Rapor oluştur",
+    creating: "Rapor oluşturuluyor…",
     selectPrompt: "Bir mahalle seçin",
     mapPickTitle: "Haritadan bir nokta seçin",
     mapPickPrompt: "Rapor almak istediğiniz noktaya haritada tıklayın.",

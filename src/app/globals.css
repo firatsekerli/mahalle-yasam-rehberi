@@ -44,3 +44,9 @@ body {
 .confidence-experimental {
   color: oklch(0.6 0.02 260);
 }
+
+/* Interactive elements get a pointer cursor (Tailwind v4 no longer defaults this). */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}

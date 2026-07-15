@@ -8,7 +8,7 @@
  * style is configured.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -23,6 +23,7 @@ export default function MapPicker({ styleUrl, initialCenter }: Props) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!ref.current || !styleUrl) return;
@@ -78,11 +79,17 @@ export default function MapPicker({ styleUrl, initialCenter }: Props) {
         </p>
         <button
           type="button"
-          disabled={!picked}
-          onClick={() => picked && router.push(`/nokta?lat=${picked.lat}&lng=${picked.lng}`)}
-          className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!picked || pending}
+          onClick={() =>
+            picked &&
+            startTransition(() => router.push(`/nokta?lat=${picked.lat}&lng=${picked.lng}`))
+          }
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {T.picker.mapPickButton}
+          {pending && (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          )}
+          {pending ? T.picker.creating : T.picker.mapPickButton}
         </button>
       </div>
     </div>

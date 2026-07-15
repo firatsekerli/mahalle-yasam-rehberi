@@ -7,7 +7,7 @@
  * (arbitrary-point reports, comparison §29.10).
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, ArrowRight } from "lucide-react";
@@ -25,6 +25,7 @@ const uniq = (xs: string[]) => Array.from(new Set(xs));
 
 export default function LocationPicker({ neighborhoods }: { neighborhoods: PickerItem[] }) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
   const cities = useMemo(() => uniq(neighborhoods.map((n) => n.city)), [neighborhoods]);
   const [city, setCity] = useState(cities[0] ?? "");
@@ -136,12 +137,21 @@ export default function LocationPicker({ neighborhoods }: { neighborhoods: Picke
       {/* Create report */}
       <button
         type="button"
-        disabled={!selected}
-        onClick={() => selected && router.push(`/n/${selected}`)}
+        disabled={!selected || pending}
+        onClick={() => selected && startTransition(() => router.push(`/n/${selected}`))}
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {T.picker.createReport}
-        <ArrowRight className="h-4 w-4" aria-hidden />
+        {pending ? (
+          <>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            {T.picker.creating}
+          </>
+        ) : (
+          <>
+            {T.picker.createReport}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </>
+        )}
       </button>
     </div>
   );
