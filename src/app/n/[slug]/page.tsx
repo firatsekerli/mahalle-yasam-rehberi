@@ -4,6 +4,7 @@ import { getNeighborhoodReport } from "@/lib/report/data";
 import { LIFESTYLE_PROFILES } from "@/lib/scoring/profiles";
 import type { DimensionScore } from "@/lib/scoring/neighborhood";
 import { T, CONFIDENCE_LABEL_TR, FRESHNESS_LABEL_TR, ADMIN_LEVEL_TR } from "@/lib/i18n/tr";
+import NeighborhoodMap from "@/components/NeighborhoodMap";
 
 export default async function NeighborhoodReportPage({
   params,
@@ -48,6 +49,18 @@ export default async function NeighborhoodReportPage({
               </span>
             )}
           </p>
+          <p className="mt-1 text-xs text-muted">
+            📍 {T.report.measurementCenter}:{" "}
+            <a
+              href={osmCenterUrl(neighborhood.centroid)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand-600 hover:underline"
+            >
+              {T.report.viewOnMap} ↗
+            </a>{" "}
+            · {T.report.measurementCenterNote}
+          </p>
         </div>
         <div className="text-right">
           <div className="text-5xl font-semibold tabular-nums">{score.overall}</div>
@@ -87,6 +100,23 @@ export default async function NeighborhoodReportPage({
 
       {/* Summary --------------------------------------------------------------- */}
       <p className="mt-8 text-pretty text-lg leading-relaxed">{score.summary}</p>
+
+      {/* Map (§19.3) ----------------------------------------------------------- */}
+      <section className="mt-8">
+        <NeighborhoodMap
+          center={neighborhood.centroid}
+          centerLabel={T.report.mapCenterLabel}
+          markers={businesses.map((b) => ({
+            lat: b.location.lat,
+            lng: b.location.lng,
+            label: b.named ? `${b.name} · ${b.categoryName}` : b.name,
+          }))}
+          isochrones={report.isochrones?.map((i) => ({ minutes: i.minutes, ring: i.ring }))}
+          styleUrl={process.env.NEXT_PUBLIC_MAP_TILES_URL || undefined}
+          fallbackText={T.report.mapFallback}
+        />
+        <p className="mt-2 text-xs text-muted">{T.report.mapNote}</p>
+      </section>
 
       {/* Strengths / weaknesses / missing -------------------------------------- */}
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -233,6 +263,11 @@ export default async function NeighborhoodReportPage({
 
 function capitalize(s: string): string {
   return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
+}
+
+/** Link to the measurement centroid on OpenStreetMap's site (free, compliant — just a hyperlink). */
+function osmCenterUrl(c: { lat: number; lng: number }): string {
+  return `https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=16/${c.lat}/${c.lng}`;
 }
 
 function DimensionCard({ d }: { d: DimensionScore }) {
