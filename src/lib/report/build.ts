@@ -10,7 +10,11 @@
 
 import type { BaselinePlace, GeoPoint } from "@/lib/data/adapters/types";
 import type { TuikDemographicRecord } from "@/lib/data/adapters/demographics";
-import { estimateWalkMinutes } from "@/lib/data/adapters/isochrone";
+import {
+  estimateWalkMinutes,
+  walkMinutesFor,
+  type WalkIsochrone,
+} from "@/lib/data/adapters/isochrone";
 import { haversineMeters } from "@/lib/geo/distance";
 import {
   scoreNeighborhood,
@@ -113,6 +117,37 @@ export interface BuildReportArgs {
   cfg?: ScoringConfig;
   /** Max options to surface per group. */
   highlightsPerGroup?: number;
+  /** Routed walk isochrones from the neighborhood centroid; enables walk-based reach (§15.7). */
+  isochrones?: WalkIsochrone[];
+}
+
+/** Per-place walking assessment: display minutes, estimate flag, and a scoring input. */
+interface WalkInfo {
+  /** Minutes to show the user. */
+  minutes: number;
+  /** True when `minutes` is a straight-line estimate, not routed. */
+  estimated: boolean;
+  /** Minutes fed to scoring — only set when routed (else scoring uses distance). */
+  scoringMinutes?: number;
+}
+
+function walkInfoFor(
+  location: GeoPoint,
+  distanceMeters: number,
+  isochrones: WalkIsochrone[] | undefined,
+  cfg: ScoringConfig,
+): WalkInfo {
+  if (isochrones && isochrones.length > 0) {
+    const band = walkMinutesFor(location, isochrones);
+    if (band !== null) return { minutes: band, estimated: false, scoringMinutes: band };
+    // Routing available but the place is outside every band → beyond walk reach.
+    return {
+      minutes: estimateWalkMinutes(distanceMeters),
+      estimated: true,
+      scoringMinutes: cfg.walkBands.reachableMinutes + 1,
+    };
+  }
+  return { minutes: estimateWalkMinutes(distanceMeters), estimated: true };
 }
 
 export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodReport {
@@ -125,17 +160,19 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     sample,
     cfg = DEFAULT_SCORING_CONFIG,
     highlightsPerGroup = 3,
+    isochrones,
   } = args;
 
-  // Attach straight-line distance from the centroid to each place.
-  const withDistance = places.map((p) => ({
-    place: p,
-    distanceMeters: Math.round(haversineMeters(neighborhood.centroid, p.location)),
-  }));
+  // Attach straight-line distance + a walk assessment (routed or estimated) to each place.
+  const withDistance = places.map((p) => {
+    const distanceMeters = Math.round(haversineMeters(neighborhood.centroid, p.location));
+    return { place: p, distanceMeters, walk: walkInfoFor(p.location, distanceMeters, isochrones, cfg) };
+  });
 
-  const scorable: ScorablePlace[] = withDistance.map(({ place, distanceMeters }) => ({
+  const scorable: ScorablePlace[] = withDistance.map(({ place, distanceMeters, walk }) => ({
     categorySlug: place.categorySlug,
     distanceMeters,
+    walkMinutes: walk.scoringMinutes,
   }));
 
   const computed = scoreNeighborhood(scorable, profile.weights, cfg);
@@ -164,7 +201,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
         const cat = getCategory(place.categorySlug);
         return cat && !NON_BUSINESS_CATEGORIES.has(place.categorySlug);
       })
-      .map(({ place, distanceMeters }) => toOption(place, distanceMeters))
+      .map(({ place, distanceMeters, walk }) => toOption(place, distanceMeters, walk))
       .sort((a, b) => a.distanceMeters - b.distanceMeters),
   );
   const businesses = listable.slice(0, MAX_BUSINESSES);
@@ -191,7 +228,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
  * present; sample places carry their category slug as the name, so we fall back
  * to the Turkish category label (never show a raw slug to the user).
  */
-function toOption(place: BaselinePlace, distanceMeters: number): NearbyOption {
+function toOption(place: BaselinePlace, distanceMeters: number, walk: WalkInfo): NearbyOption {
   const categoryName = categoryNameTr(place.categorySlug);
   const named = Boolean(place.name && place.name !== place.categorySlug);
   return {
@@ -200,22 +237,21 @@ function toOption(place: BaselinePlace, distanceMeters: number): NearbyOption {
     categorySlug: place.categorySlug,
     categoryName,
     distanceMeters,
-    // Straight-line estimate for now; routed isochrones replace this once ORS is wired.
-    walkMinutes: estimateWalkMinutes(distanceMeters),
-    walkEstimated: true,
+    walkMinutes: walk.minutes,
+    walkEstimated: walk.estimated,
   };
 }
 
 function buildHighlights(
-  withDistance: { place: BaselinePlace; distanceMeters: number }[],
+  withDistance: { place: BaselinePlace; distanceMeters: number; walk: WalkInfo }[],
   perGroup: number,
 ): ReportGroupHighlights[] {
   const byGroup = new Map<ScoreGroup, NearbyOption[]>();
-  for (const { place, distanceMeters } of withDistance) {
+  for (const { place, distanceMeters, walk } of withDistance) {
     const cat = getCategory(place.categorySlug);
     if (!cat) continue;
     const list = byGroup.get(cat.scoreGroup) ?? [];
-    list.push(toOption(place, distanceMeters));
+    list.push(toOption(place, distanceMeters, walk));
     byGroup.set(cat.scoreGroup, list);
   }
   const groups: ReportGroupHighlights[] = [];

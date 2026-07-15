@@ -77,6 +77,50 @@ describe("buildNeighborhoodReport", () => {
     expect(market.name).toBe("Süpermarket");
   });
 
+  it("uses routed walk times when isochrones are provided", () => {
+    const c = kizilay.centroid;
+    const d = 0.02; // ~2 km box covering all sample places
+    const ring = [
+      [c.lng - d, c.lat - d],
+      [c.lng + d, c.lat - d],
+      [c.lng + d, c.lat + d],
+      [c.lng - d, c.lat + d],
+      [c.lng - d, c.lat - d],
+    ];
+    const r = buildNeighborhoodReport({
+      neighborhood: kizilay,
+      places: getSamplePlaces("kizilay"),
+      demographics: null,
+      profile: getProfile("general"),
+      currentYear: 2026,
+      sample: false,
+      isochrones: [{ minutes: 10, ring }],
+    });
+    // Every place is inside the 10-min shape → routed (not estimated), 10 min.
+    expect(r.businesses.every((b) => !b.walkEstimated)).toBe(true);
+    expect(r.businesses.every((b) => b.walkMinutes === 10)).toBe(true);
+  });
+
+  it("falls back to walk estimates when a place is outside every isochrone", () => {
+    const tinyRing = [
+      [0, 0],
+      [0.001, 0],
+      [0.001, 0.001],
+      [0, 0.001],
+      [0, 0],
+    ]; // far from Ankara → contains nothing
+    const r = buildNeighborhoodReport({
+      neighborhood: kizilay,
+      places: getSamplePlaces("kizilay"),
+      demographics: null,
+      profile: getProfile("general"),
+      currentYear: 2026,
+      sample: false,
+      isochrones: [{ minutes: 10, ring: tinyRing }],
+    });
+    expect(r.businesses.every((b) => b.walkEstimated)).toBe(true);
+  });
+
   it("excludes transit infrastructure from the business list (still in scoring)", () => {
     const r = build("general");
     for (const b of r.businesses) {

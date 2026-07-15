@@ -13,6 +13,11 @@
 import { unstable_cache } from "next/cache";
 import { OsmBaselineSource } from "@/lib/data/adapters/osm";
 import { fetchNeighborhoodPlacesFromDb, supabaseConfigured } from "@/lib/data/adapters/osm-db";
+import {
+  OpenRouteServiceIsochroneSource,
+  isochroneConfigured,
+  type WalkIsochrone,
+} from "@/lib/data/adapters/isochrone";
 import type { BaselinePlace } from "@/lib/data/adapters/types";
 import { buildNeighborhoodReport, type NeighborhoodMeta, type NeighborhoodReport } from "./build";
 import { resolveNeighborhoodPlaces } from "./source";
@@ -52,6 +57,30 @@ const fetchDbCached = unstable_cache(
   { revalidate: DB_REVALIDATE_SECONDS },
 );
 
+/** Walk isochrones change only with the street network — cache a week. */
+const ISOCHRONE_REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
+
+const fetchIsochronesCached = unstable_cache(
+  async (_slug: string, lat: number, lng: number): Promise<WalkIsochrone[]> => {
+    const src = new OpenRouteServiceIsochroneSource({
+      apiKey: process.env.OPENROUTESERVICE_API_KEY!,
+    });
+    return src.getWalkingIsochrones({ lat, lng });
+  },
+  ["walk-isochrones"],
+  { revalidate: ISOCHRONE_REVALIDATE_SECONDS },
+);
+
+/** Fetch routed walk isochrones when configured; undefined on absence/failure (→ estimate). */
+async function getIsochrones(n: NeighborhoodMeta): Promise<WalkIsochrone[] | undefined> {
+  if (!isochroneConfigured()) return undefined;
+  try {
+    return await fetchIsochronesCached(n.slug, n.centroid.lat, n.centroid.lng);
+  } catch {
+    return undefined;
+  }
+}
+
 function forceSample(): boolean {
   return process.env.DATA_SOURCE === "sample";
 }
@@ -85,6 +114,7 @@ export async function getNeighborhoodReport(
 
   const demographics = SAMPLE_DEMOGRAPHICS[slug] ?? null;
   const profile = getProfile(profileSlug);
+  const isochrones = await getIsochrones(neighborhood);
 
   return buildNeighborhoodReport({
     neighborhood,
@@ -93,5 +123,6 @@ export async function getNeighborhoodReport(
     profile,
     currentYear: CURRENT_YEAR,
     sample,
+    isochrones,
   });
 }

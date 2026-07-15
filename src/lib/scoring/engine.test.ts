@@ -3,8 +3,10 @@ import {
   applyMissingEssentialPenalty,
   bayesianRating,
   diminishingReturns,
+  placeProximity,
   proximityScore,
   scoreCategory,
+  walkProximityScore,
   type ScorablePlace,
 } from "./engine";
 import { DEFAULT_SCORING_CONFIG, validateScoringConfig } from "./config";
@@ -44,6 +46,29 @@ describe("proximityScore", () => {
 
   it("decays monotonically between the bands", () => {
     expect(proximityScore(600)).toBeGreaterThan(proximityScore(900));
+  });
+});
+
+describe("walkProximityScore", () => {
+  it("gives full credit within the near band and none beyond reachable", () => {
+    expect(walkProximityScore(5)).toBe(1);
+    expect(walkProximityScore(10)).toBe(1);
+    expect(walkProximityScore(15)).toBe(0);
+    expect(walkProximityScore(30)).toBe(0);
+  });
+  it("decays linearly between the bands", () => {
+    expect(walkProximityScore(12)).toBeCloseTo(0.6, 5); // (15-12)/(15-10)
+  });
+});
+
+describe("placeProximity", () => {
+  it("prefers routed walk minutes when present, else falls back to distance", () => {
+    // Far in meters, but 8 walking minutes → full credit via walk band.
+    expect(placeProximity({ categorySlug: "x", distanceMeters: 5000, walkMinutes: 8 })).toBe(1);
+    // No walk minutes → distance path (within near band).
+    expect(placeProximity({ categorySlug: "x", distanceMeters: 100 })).toBe(1);
+    // Walk minutes beyond reach → zero, regardless of distance.
+    expect(placeProximity({ categorySlug: "x", distanceMeters: 50, walkMinutes: 20 })).toBe(0);
   });
 });
 

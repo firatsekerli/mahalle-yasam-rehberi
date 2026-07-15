@@ -110,7 +110,9 @@ export const T = {
     businessesEmpty: "Bu bölge için henüz işletme verisi yüklenmedi.",
     liveData: "Canlı OpenStreetMap verisi",
     walkNote: "~ ile gösterilen yürüyüş süreleri, kuş uçuşu mesafeye göre tahminidir (gerçek rota değildir).",
-    walkMin: (min: number) => `${min} dk`,
+    walkRoutedNote: "Yürüyüş süreleri gerçek yürüyüş rotasına dayanır (openrouteservice).",
+    walkMin: (min: number) => `~${min} dk`,
+    walkWithin: (min: number) => `≤${min} dk`,
     unavailable:
       "Henüz mevcut değil — elimizde olmayan veriye ihtiyaç duyar (puana dahil edilmez, sıfır sayılmaz).",
     weight: "ağırlık",
