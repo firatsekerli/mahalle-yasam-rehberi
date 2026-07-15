@@ -17,7 +17,7 @@ export default function ReportView({
   report: NeighborhoodReport;
   profileHref: (profileSlug: string) => string;
 }) {
-  const { neighborhood, score, profile, demographics, highlights, nearbyCounts, businesses, placeCount, dataNotice } =
+  const { neighborhood, score, profile, demographics, highlights, nearbyCounts, businesses, placeCount, dataNotice, boundaryPrecise } =
     report;
   const place = [neighborhood.district, neighborhood.city].filter(Boolean).join(" · ");
 
@@ -203,6 +203,9 @@ export default function ReportView({
           <h2 className="text-xl font-semibold">{T.report.businessesTitle}</h2>
           <span className="text-xs text-muted">{T.report.businessesCount(businesses.length, placeCount)}</span>
         </div>
+        <p className="mt-1 text-xs text-muted">
+          {boundaryPrecise ? T.report.boundaryPreciseNote : T.report.boundaryApproxNote}
+        </p>
         {businesses.length > 0 ? (
           <ul className="mt-4 divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
             {businesses.map((b, i) => (

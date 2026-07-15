@@ -1,13 +1,16 @@
 /**
- * Report data access (CLAUDE.md §29 step 9, §15.4).
+ * Report data access (CLAUDE.md §29 step 9, §15.4, §12.2).
  *
- * Single entry point the report page calls. Places are resolved in order:
- *   1. Supabase `osm_places` (seeded real data — the reliable production path)
- *   2. live OpenStreetMap (Overpass) as a fallback for un-seeded neighborhoods
- *   3. the sample dataset, so a report is never blank
- * Both real sources are cached server-side. Set `DATA_SOURCE=sample` to force
- * the sample dataset. Neighborhood definitions come from the seed registry;
- * moving them to a `neighborhoods` table later doesn't change this API.
+ * Single entry point the report page calls. There are three report kinds:
+ *   - Curated pilot (`getNeighborhoodReport` → sample registry): live OSM first,
+ *     Supabase `osm_places` snapshot as a reliability fallback, then sample.
+ *   - Dynamic OSM-indexed mahalle (`getIndexedNeighborhoodReport`): looked up by
+ *     slug in `neighborhood_index`; when it's a boundary relation we fetch the
+ *     real polygon and keep only the live places *inside* it (no radius overlap),
+ *     falling back to a centroid radius otherwise.
+ *   - Arbitrary point (`getPointReport`): seeded-near then live OSM by radius.
+ * All external fetches are cached server-side. `DATA_SOURCE=sample` forces the
+ * sample dataset.
  */
 
 import { unstable_cache } from "next/cache";
@@ -17,14 +20,20 @@ import {
   fetchPlacesNearFromDb,
   supabaseConfigured,
 } from "@/lib/data/adapters/osm-db";
-import { fetchIndexedNeighborhoods } from "@/lib/data/adapters/neighborhood-index-db";
+import {
+  fetchIndexedNeighborhoods,
+  fetchIndexedNeighborhoodBySlug,
+} from "@/lib/data/adapters/neighborhood-index-db";
+import { AdminOsmSource } from "@/lib/data/adapters/admin-osm";
 import { areaSlug } from "@/lib/text/slug";
+import { pointInArea, type Area } from "@/lib/geo/polygon";
+import { haversineMeters } from "@/lib/geo/distance";
 import {
   OpenRouteServiceIsochroneSource,
   isochroneConfigured,
   type WalkIsochrone,
 } from "@/lib/data/adapters/isochrone";
-import type { BaselinePlace } from "@/lib/data/adapters/types";
+import type { BaselinePlace, GeoPoint } from "@/lib/data/adapters/types";
 import { buildNeighborhoodReport, type NeighborhoodMeta, type NeighborhoodReport } from "./build";
 import { resolveNeighborhoodPlaces } from "./source";
 import { getProfile } from "@/lib/scoring/profiles";
@@ -45,6 +54,8 @@ const OSM_RADIUS_M = 1200;
 const OSM_REVALIDATE_SECONDS = 60 * 60 * 24;
 /** Seeded DB is authoritative but re-seeded periodically; a short cache is plenty. */
 const DB_REVALIDATE_SECONDS = 60 * 60;
+/** Indexed hierarchy changes only when the import job runs — cache generously. */
+const INDEX_REVALIDATE_SECONDS = 60 * 60 * 24;
 
 // 8s keeps the whole request under Vercel's default function limit (Hobby ~10s),
 // so a slow Overpass triggers the next source instead of a hard timeout.
@@ -56,6 +67,49 @@ const fetchLiveCached = unstable_cache(
   ["osm-neighborhood-places"],
   { revalidate: OSM_REVALIDATE_SECONDS },
 );
+
+/** Live places within a caller-chosen radius (used to cover a mahalle boundary bbox). */
+const fetchLiveRadiusCached = unstable_cache(
+  async (_key: string, lat: number, lng: number, radius: number): Promise<BaselinePlace[]> =>
+    osm.fetchNearby({ lat, lng }, radius),
+  ["osm-places-radius"],
+  { revalidate: OSM_REVALIDATE_SECONDS },
+);
+
+/** Boundaries change very rarely — cache a month. */
+const BOUNDARY_REVALIDATE_SECONDS = 60 * 60 * 24 * 30;
+// Generous timeout still under Vercel's function limit; a slow boundary fetch
+// just means we fall back to a radius rather than blocking the report.
+const admin = new AdminOsmSource({ timeoutMs: 8_000 });
+
+const fetchBoundaryCached = unstable_cache(
+  async (relationId: number): Promise<Area | null> => admin.fetchBoundary(relationId),
+  ["mahalle-boundary"],
+  { revalidate: BOUNDARY_REVALIDATE_SECONDS },
+);
+
+const fetchIndexBySlugCached = unstable_cache(
+  async (slug: string) => fetchIndexedNeighborhoodBySlug(slug),
+  ["neighborhood-index-by-slug"],
+  { revalidate: INDEX_REVALIDATE_SECONDS },
+);
+
+/** "relation/123" → 123; null for place nodes (no boundary). */
+function relationIdOf(osmId: string | undefined): number | null {
+  const m = osmId ? /^relation\/(\d+)$/.exec(osmId) : null;
+  return m ? Number(m[1]) : null;
+}
+
+/** Radius from the centroid that covers the whole boundary, clamped to a sane range. */
+function boundaryFetchRadius(centroid: GeoPoint, area: Area): number {
+  let max = 0;
+  for (const ring of area.outer) {
+    for (const [lng, lat] of ring) {
+      max = Math.max(max, haversineMeters(centroid, { lat, lng }));
+    }
+  }
+  return Math.min(Math.max(Math.ceil(max * 1.05), 300), 5000);
+}
 
 const fetchDbCached = unstable_cache(
   async (slug: string): Promise<BaselinePlace[]> => fetchNeighborhoodPlacesFromDb(slug),
@@ -104,19 +158,13 @@ function forceSample(): boolean {
   return process.env.DATA_SOURCE === "sample";
 }
 
-/** One selectable area for the picker. `lat`/`lng` present → dynamic point report. */
+/** One selectable area for the picker. Routing is always by slug (`/n/[slug]`). */
 export interface ReportNeighborhoodItem {
   slug: string;
   name: string;
   district: string;
   city: string;
-  /** Approximate centroid for dynamic (OSM-indexed) mahalle; absent for curated ones. */
-  lat?: number;
-  lng?: number;
 }
-
-/** Indexed hierarchy changes only when the import job runs — cache generously. */
-const INDEX_REVALIDATE_SECONDS = 60 * 60 * 24;
 
 const fetchIndexCached = unstable_cache(
   async (): Promise<ReportNeighborhoodItem[]> =>
@@ -125,8 +173,6 @@ const fetchIndexCached = unstable_cache(
       name: n.name,
       district: n.district,
       city: n.city,
-      lat: n.lat,
-      lng: n.lng,
     })),
   ["neighborhood-index"],
   { revalidate: INDEX_REVALIDATE_SECONDS },
@@ -230,7 +276,8 @@ export async function getNeighborhoodReport(
   profileSlug: string | undefined,
 ): Promise<NeighborhoodReport | null> {
   const neighborhood = getSampleNeighborhood(slug);
-  if (!neighborhood) return null;
+  // Not a curated pilot → try the dynamic OSM-indexed mahalle (boundary-aware).
+  if (!neighborhood) return getIndexedNeighborhoodReport(slug, profileSlug);
 
   const { places, sample } = await resolveNeighborhoodPlaces(neighborhood, {
     realSources: [
@@ -257,5 +304,75 @@ export async function getNeighborhoodReport(
     currentYear: CURRENT_YEAR,
     sample,
     isochrones,
+  });
+}
+
+/**
+ * Report for a dynamic OSM-indexed mahalle (§19.4, §12.2). Looks the mahalle up
+ * by slug, fetches its real boundary polygon when it's a relation, then keeps
+ * only the live places that fall *inside* that boundary — so a business in the
+ * next mahalle no longer leaks in (the radius-overlap problem). Falls back to a
+ * centroid radius (labeled approximate) for place-node mahalle or when the
+ * boundary can't be fetched. Returns null when the slug isn't indexed.
+ */
+async function getIndexedNeighborhoodReport(
+  slug: string,
+  profileSlug: string | undefined,
+): Promise<NeighborhoodReport | null> {
+  if (forceSample()) return null;
+
+  let indexed = null;
+  try {
+    indexed = await fetchIndexBySlugCached(slug);
+  } catch {
+    indexed = null;
+  }
+  if (!indexed) return null;
+
+  const centroid: GeoPoint = { lat: indexed.lat, lng: indexed.lng };
+  const neighborhood: NeighborhoodMeta = {
+    slug,
+    name: indexed.name,
+    district: indexed.district,
+    city: indexed.city,
+    centroid,
+    boundaryConfidence: "experimental",
+    isApproximate: true,
+  };
+
+  // Fetch the real boundary for relation-type mahalle; null → radius fallback.
+  let boundary: Area | null = null;
+  const relationId = relationIdOf(indexed.osmId);
+  if (relationId !== null) {
+    try {
+      boundary = await fetchBoundaryCached(relationId);
+    } catch {
+      boundary = null;
+    }
+  }
+
+  const radius = boundary ? boundaryFetchRadius(centroid, boundary) : OSM_RADIUS_M;
+  let places: BaselinePlace[] = [];
+  try {
+    places = await fetchLiveRadiusCached(slug, centroid.lat, centroid.lng, radius);
+  } catch {
+    places = [];
+  }
+  if (boundary) {
+    const b = boundary;
+    places = places.filter((p) => pointInArea(p.location, b));
+  }
+
+  const isochrones = await getIsochrones(neighborhood);
+
+  return buildNeighborhoodReport({
+    neighborhood,
+    places,
+    demographics: null,
+    profile: getProfile(profileSlug),
+    currentYear: CURRENT_YEAR,
+    sample: false,
+    isochrones,
+    boundaryPrecise: boundary !== null,
   });
 }

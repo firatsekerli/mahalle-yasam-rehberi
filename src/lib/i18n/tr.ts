@@ -139,6 +139,10 @@ export const T = {
     businessesCount: (shown: number, total: number) =>
       shown < total ? `${total} işletme bulundu — en yakın ${shown} tanesi gösteriliyor` : `${total} işletme bulundu`,
     businessesEmpty: "Bu bölge için henüz işletme verisi yüklenmedi.",
+    boundaryPreciseNote:
+      "İşletmeler gerçek mahalle sınırı içinde kalanlarla eşleştirildi (OpenStreetMap idari sınırı).",
+    boundaryApproxNote:
+      "Mahalle sınır poligonu bulunmadığı için işletmeler merkez çevresindeki yaklaşık bir alandan alındı (yaklaşık sınır).",
     liveData: "Canlı OpenStreetMap verisi",
     walkNote: "~ ile gösterilen yürüyüş süreleri, kuş uçuşu mesafeye göre tahminidir (gerçek rota değildir).",
     walkRoutedNote: "Yürüyüş süreleri gerçek yürüyüş rotasına dayanır (openrouteservice).",

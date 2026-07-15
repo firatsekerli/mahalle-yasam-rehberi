@@ -14,6 +14,8 @@
  */
 
 import type { OsmTags } from "@/lib/taxonomy/osm-mapping";
+import { assembleRings } from "@/lib/geo/rings";
+import type { Area } from "@/lib/geo/polygon";
 
 const DEFAULT_ENDPOINT = "https://overpass-api.de/api/interpreter";
 
@@ -67,6 +69,12 @@ export function neighborhoodsInAreaQuery(districtRelationId: number): string {
   ].join("\n");
 }
 
+interface OverpassMember {
+  type: "node" | "way" | "relation";
+  role?: string;
+  geometry?: { lat: number; lon: number }[];
+}
+
 interface OverpassElement {
   type: "node" | "way" | "relation";
   id: number;
@@ -74,10 +82,36 @@ interface OverpassElement {
   lon?: number;
   center?: { lat: number; lon: number };
   tags?: OsmTags;
+  members?: OverpassMember[];
 }
 
 interface OverpassResponse {
   elements?: OverpassElement[];
+}
+
+/** Fetch one boundary relation's full geometry, to assemble its rings. */
+export function boundaryQuery(relationId: number): string {
+  return [`[out:json][timeout:120];`, `rel(${relationId});`, "out geom;"].join("\n");
+}
+
+/**
+ * Build an {@link Area} (outer rings minus inner holes) from a relation's member
+ * ways. Returns null when there is no usable outer ring (unclosed/missing ways),
+ * so the caller falls back to a radius rather than a broken polygon.
+ */
+export function parseBoundary(json: OverpassResponse): Area | null {
+  const rel = (json.elements ?? []).find((el) => el.type === "relation" && el.members);
+  if (!rel?.members) return null;
+
+  const toWays = (role: "outer" | "inner"): number[][][] =>
+    rel.members!
+      .filter((m) => m.type === "way" && (m.role ?? "outer") === role && m.geometry)
+      .map((m) => m.geometry!.map((g) => [g.lon, g.lat]));
+
+  const outer = assembleRings(toWays("outer"));
+  if (outer.length === 0) return null;
+  const inner = assembleRings(toWays("inner"));
+  return { outer, inner };
 }
 
 function elementLatLng(el: OverpassElement): { lat: number; lng: number } | null {
@@ -138,7 +172,7 @@ export class AdminOsmSource {
     this.timeoutMs = opts.timeoutMs ?? 180_000;
   }
 
-  private async run(query: string): Promise<AdminUnit[]> {
+  private async post(query: string): Promise<OverpassResponse> {
     const res = await this.fetchImpl(this.endpoint, {
       method: "POST",
       headers: {
@@ -149,16 +183,21 @@ export class AdminOsmSource {
       signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!res.ok) throw new Error(`Overpass API error ${res.status} ${res.statusText}`);
-    return parseAdminUnits((await res.json()) as OverpassResponse);
+    return (await res.json()) as OverpassResponse;
   }
 
   /** Ilçe within a named il. */
-  fetchDistricts(province: string): Promise<AdminUnit[]> {
-    return this.run(districtsQuery(province));
+  async fetchDistricts(province: string): Promise<AdminUnit[]> {
+    return parseAdminUnits(await this.post(districtsQuery(province)));
   }
 
   /** Mahalle within one ilçe, addressed by its OSM relation id. */
-  fetchNeighborhoods(districtRelationId: number): Promise<AdminUnit[]> {
-    return this.run(neighborhoodsInAreaQuery(districtRelationId));
+  async fetchNeighborhoods(districtRelationId: number): Promise<AdminUnit[]> {
+    return parseAdminUnits(await this.post(neighborhoodsInAreaQuery(districtRelationId)));
+  }
+
+  /** A mahalle's boundary polygon, or null when it has no closable rings. */
+  async fetchBoundary(relationId: number): Promise<Area | null> {
+    return parseBoundary(await this.post(boundaryQuery(relationId)));
   }
 }

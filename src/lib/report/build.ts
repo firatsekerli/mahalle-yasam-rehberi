@@ -102,6 +102,8 @@ export interface NeighborhoodReport {
   placeCount: number;
   /** Honesty banner state — true when data is prototype/sample, not live. */
   dataNotice: { sample: boolean; message: string };
+  /** True when places were filtered to the real mahalle boundary (not a radius). */
+  boundaryPrecise: boolean;
   /** Routed walk isochrones (if available), for the map overlay. */
   isochrones?: WalkIsochrone[];
 }
@@ -148,6 +150,8 @@ export interface BuildReportArgs {
   highlightsPerGroup?: number;
   /** Routed walk isochrones from the neighborhood centroid; enables walk-based reach (§15.7). */
   isochrones?: WalkIsochrone[];
+  /** True when `places` were already filtered to the real mahalle boundary (§12.2). */
+  boundaryPrecise?: boolean;
 }
 
 /** Per-place walking assessment: display minutes, estimate flag, and a scoring input. */
@@ -190,6 +194,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     cfg = DEFAULT_SCORING_CONFIG,
     highlightsPerGroup = 3,
     isochrones,
+    boundaryPrecise = false,
   } = args;
 
   // Attach straight-line distance + a walk assessment (routed or estimated) to each place.
@@ -245,6 +250,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     nearbyCounts,
     businesses,
     placeCount: listable.length,
+    boundaryPrecise,
     isochrones,
     dataNotice: {
       sample,

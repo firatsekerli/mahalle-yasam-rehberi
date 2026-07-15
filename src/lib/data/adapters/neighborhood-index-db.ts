@@ -19,6 +19,7 @@ export interface NeighborhoodIndexRow {
   province: string;
   lat: number;
   lng: number;
+  osm_id?: string;
 }
 
 /** A selectable area for the picker — a dynamic mahalle with an approximate center. */
@@ -29,6 +30,8 @@ export interface IndexedNeighborhood {
   city: string;
   lat: number;
   lng: number;
+  /** OSM element id ("relation/123" | "node/456") — a relation may carry a boundary. */
+  osmId?: string;
 }
 
 export function rowToIndexedNeighborhood(row: NeighborhoodIndexRow): IndexedNeighborhood {
@@ -39,6 +42,7 @@ export function rowToIndexedNeighborhood(row: NeighborhoodIndexRow): IndexedNeig
     city: row.province,
     lat: row.lat,
     lng: row.lng,
+    osmId: row.osm_id,
   };
 }
 
@@ -71,4 +75,25 @@ export async function fetchIndexedNeighborhoods(): Promise<IndexedNeighborhood[]
     if (rows.length < PAGE) break;
   }
   return out;
+}
+
+/**
+ * Fetch one indexed mahalle by slug (with its `osm_id`, for boundary lookup).
+ * Returns null when not found or Supabase isn't configured.
+ */
+export async function fetchIndexedNeighborhoodBySlug(
+  slug: string,
+): Promise<IndexedNeighborhood | null> {
+  if (!supabaseConfigured()) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabase = createClient(url, key, { auth: { persistSession: false } });
+
+  const { data, error } = await supabase
+    .from("neighborhood_index")
+    .select("slug,name,district,province,lat,lng,osm_id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) throw new Error(`Supabase neighborhood_index read failed: ${error.message}`);
+  return data ? rowToIndexedNeighborhood(data as NeighborhoodIndexRow) : null;
 }
