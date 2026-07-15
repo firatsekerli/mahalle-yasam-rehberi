@@ -167,6 +167,59 @@ describe("buildNeighborhoodReport", () => {
     expect(named?.categoryName).toBe("Süpermarket");
   });
 
+  it("rolls up nearby facility counts by category and group", () => {
+    const r = build("general");
+    expect(r.nearbyCounts.length).toBeGreaterThan(0);
+    for (const g of r.nearbyCounts) {
+      // Group total equals the sum of its category counts.
+      expect(g.total).toBe(g.categories.reduce((s, c) => s + c.count, 0));
+      // Categories are ordered most-common first.
+      const counts = g.categories.map((c) => c.count);
+      expect(counts).toEqual([...counts].sort((a, b) => b - a));
+      for (const c of g.categories) {
+        expect(c.count).toBeGreaterThan(0);
+        expect(c.nearestMeters).toBeGreaterThanOrEqual(0);
+        expect(c.categoryName).not.toBe(c.categorySlug); // Turkish label, never a raw slug
+      }
+    }
+    // Groups are ordered busiest first.
+    const totals = r.nearbyCounts.map((g) => g.total);
+    expect(totals).toEqual([...totals].sort((a, b) => b - a));
+  });
+
+  it("counts transit infrastructure in nearby counts (unlike the business list)", () => {
+    const base = getSamplePlaces("kizilay");
+    const countBusStops = (places: typeof base) =>
+      buildNeighborhoodReport({
+        neighborhood: kizilay,
+        places,
+        demographics: null,
+        profile: getProfile("general"),
+        currentYear: 2026,
+        sample: false,
+      }).nearbyCounts
+        .find((g) => g.group === "transport_mobility")
+        ?.categories.find((c) => c.categorySlug === "bus_stop")?.count ?? 0;
+
+    const before = countBusStops(base);
+    const after = countBusStops([
+      ...base,
+      { ...base[0], sourceId: "bus/extra-1", name: "bus_stop", categorySlug: "bus_stop" },
+      { ...base[0], sourceId: "bus/extra-2", name: "bus_stop", categorySlug: "bus_stop" },
+    ]);
+    expect(after).toBe(before + 2); // transit is counted here...
+    // ...but the venue list still excludes it.
+    const r = buildNeighborhoodReport({
+      neighborhood: kizilay,
+      places: base,
+      demographics: null,
+      profile: getProfile("general"),
+      currentYear: 2026,
+      sample: false,
+    });
+    expect(r.businesses.some((b) => b.categorySlug === "bus_stop")).toBe(false);
+  });
+
   it("returns null demographics when none imported, and facts when present", () => {
     expect(build("general").demographics).toBeNull();
 

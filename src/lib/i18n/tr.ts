@@ -126,6 +126,13 @@ export const T = {
     categoryScores: "Kategori puanları",
     categoryNote:
       "profili için ağırlıklandırıldı. Mesafeler mahalle merkezinden kuş uçuşudur (yürüyüş rotası değildir).",
+    nearbyTitle: "Yakın çevre",
+    nearbyIntro:
+      "Ölçüm merkezinin çevresinde bulabildiğimiz tesislerin kategorilere göre sayısı. Yalnızca tanıdığımız kategoriler sayılır; her işletmenin dahil olduğu iddia edilmez.",
+    nearbyTotal: (n: number) => `${n} tesis`,
+    nearbyCount: (n: number) => `${n} adet`,
+    nearbyNearest: (m: number) => `en yakını ≈ ${m} m`,
+    nearbyEmpty: "Bu bölge için henüz kategorize edilmiş tesis verisi yok.",
     topNearby: "Yakındaki en iyi seçenekler",
     businessesTitle: "Bu mahalledeki işletmeler",
     businessesCount: (shown: number, total: number) =>

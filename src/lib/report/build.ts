@@ -68,6 +68,25 @@ export interface ReportGroupHighlights {
   options: NearbyOption[];
 }
 
+/** Count of one tracked category near the measurement center (§19.3 "Yakın çevre"). */
+export interface NearbyCategoryCount {
+  categorySlug: string;
+  categoryName: string;
+  count: number;
+  /** Straight-line distance to the closest instance, in meters. */
+  nearestMeters: number;
+}
+
+/** Category counts rolled up by score group, for the "nearby" overview. */
+export interface NearbyGroupCounts {
+  group: ScoreGroup;
+  groupName: string;
+  /** Total tracked places in this group near the center. */
+  total: number;
+  /** Per-category breakdown, most-common first. */
+  categories: NearbyCategoryCount[];
+}
+
 export interface NeighborhoodReport {
   neighborhood: NeighborhoodMeta;
   profile: { slug: string; name: string; description: string };
@@ -75,6 +94,8 @@ export interface NeighborhoodReport {
   demographics: DemographicFacts | null;
   /** Closest options per score group, for the "top nearby" section. */
   highlights: ReportGroupHighlights[];
+  /** Facility counts by category, rolled up by group — the "Yakın çevre" overview. */
+  nearbyCounts: NearbyGroupCounts[];
   /** Flat list of the nearest businesses, for the neighborhood business list (§31.1). */
   businesses: NearbyOption[];
   /** Total baseline places considered (may exceed `businesses.length`). */
@@ -195,6 +216,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     : computed;
 
   const highlights = buildHighlights(withDistance, highlightsPerGroup);
+  const nearbyCounts = buildNearbyCounts(withDistance);
 
   // Flat nearest-first business list (§31.1): tracked categories, minus transit
   // infrastructure, de-duplicated, nearest first. Bus stops etc. still feed the
@@ -216,6 +238,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     score,
     demographics: demographics ? buildDemographicFacts(demographics, currentYear) : null,
     highlights,
+    nearbyCounts,
     businesses,
     placeCount: listable.length,
     isochrones,
@@ -246,6 +269,47 @@ function toOption(place: BaselinePlace, distanceMeters: number, walk: WalkInfo):
     walkEstimated: walk.estimated,
     location: place.location,
   };
+}
+
+/**
+ * Roll up facility counts by category, then by score group, for the "Yakın çevre"
+ * overview (§19.3). Unlike the business list this includes transit/parking
+ * infrastructure — a Metro or bus-stop count is decision-useful here — but like
+ * scoring it only counts tracked (normalized) categories, never raw provider tags.
+ * Counts are honest evidence of coverage, not a completeness claim (§13).
+ */
+function buildNearbyCounts(
+  withDistance: { place: BaselinePlace; distanceMeters: number; walk: WalkInfo }[],
+): NearbyGroupCounts[] {
+  const byCategory = new Map<string, { count: number; nearestMeters: number }>();
+  for (const { place, distanceMeters } of withDistance) {
+    if (!getCategory(place.categorySlug)) continue;
+    const cur = byCategory.get(place.categorySlug);
+    if (cur) {
+      cur.count += 1;
+      cur.nearestMeters = Math.min(cur.nearestMeters, distanceMeters);
+    } else {
+      byCategory.set(place.categorySlug, { count: 1, nearestMeters: distanceMeters });
+    }
+  }
+
+  const byGroup = new Map<ScoreGroup, NearbyCategoryCount[]>();
+  for (const [slug, { count, nearestMeters }] of byCategory) {
+    const cat = getCategory(slug)!;
+    const list = byGroup.get(cat.scoreGroup) ?? [];
+    list.push({ categorySlug: slug, categoryName: categoryNameTr(slug), count, nearestMeters });
+    byGroup.set(cat.scoreGroup, list);
+  }
+
+  const groups: NearbyGroupCounts[] = [];
+  for (const [group, categories] of byGroup) {
+    categories.sort((a, b) => b.count - a.count || a.nearestMeters - b.nearestMeters);
+    const total = categories.reduce((sum, c) => sum + c.count, 0);
+    groups.push({ group, groupName: scoreGroupNameTr(group), total, categories });
+  }
+  // Busiest groups first; break ties by localized name for a stable order.
+  groups.sort((a, b) => b.total - a.total || a.groupName.localeCompare(b.groupName, "tr"));
+  return groups;
 }
 
 function buildHighlights(
