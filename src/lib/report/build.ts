@@ -58,6 +58,8 @@ export interface NearbyOption {
   walkMinutes: number;
   /** True when `walkMinutes` is a straight-line estimate, not a routed time. */
   walkEstimated: boolean;
+  /** Location, for map markers. */
+  location: GeoPoint;
 }
 
 export interface ReportGroupHighlights {
@@ -79,6 +81,8 @@ export interface NeighborhoodReport {
   placeCount: number;
   /** Honesty banner state — true when data is prototype/sample, not live. */
   dataNotice: { sample: boolean; message: string };
+  /** Routed walk isochrones (if available), for the map overlay. */
+  isochrones?: WalkIsochrone[];
 }
 
 /** Max businesses sent to the client for the list (the count still reports the true total). */
@@ -214,6 +218,7 @@ export function buildNeighborhoodReport(args: BuildReportArgs): NeighborhoodRepo
     highlights,
     businesses,
     placeCount: listable.length,
+    isochrones,
     dataNotice: {
       sample,
       message: sample
@@ -239,6 +244,7 @@ function toOption(place: BaselinePlace, distanceMeters: number, walk: WalkInfo):
     distanceMeters,
     walkMinutes: walk.minutes,
     walkEstimated: walk.estimated,
+    location: place.location,
   };
 }
 

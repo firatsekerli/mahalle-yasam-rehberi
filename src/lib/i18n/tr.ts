@@ -122,6 +122,15 @@ export const T = {
       "Süreler mahalle merkezinden ölçülür (belirli bir adresten değil) ve yokuşlar süreyi uzatabilir.",
     walkMin: (min: number) => `~${min} dk`,
     walkWithin: (min: number) => `≤${min} dk`,
+    measurementCenter: "Ölçüm merkezi",
+    measurementCenterNote: "Mesafe ve yürüyüş süreleri bu noktadan hesaplanır (yaklaşık).",
+    viewOnMap: "haritada gör",
+    mapTitle: "Harita",
+    mapCenterLabel: "Ölçüm merkezi",
+    mapFallback:
+      "Harita henüz yapılandırılmadı. Ölçüm merkezini yukarıdaki “haritada gör” bağlantısından görebilirsiniz.",
+    mapNote:
+      "Mavi işaret ölçüm merkezidir; yeşil noktalar işletmelerdir. Yeşil alanlar (varsa) 10/15 dakikalık yürüyüş erişimini gösterir.",
     unavailable:
       "Henüz mevcut değil — elimizde olmayan veriye ihtiyaç duyar (puana dahil edilmez, sıfır sayılmaz).",
     weight: "ağırlık",
