@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * Guided location picker (CLAUDE.md §19.2) — cascading İl → İlçe → Mahalle with
- * search, then "Rapor oluştur" to open the report. İl/İlçe/Mahalle come from the
- * data layer (curated pilots + OSM-indexed mahalle), so nothing is hardcoded.
- * "Haritadan seç" opens the map point-picker; Compare mode is still "yakında".
+ * Guided location picker (CLAUDE.md §19.2) — cascading İl → İlçe → Mahalle as
+ * native select fields, then "Rapor oluştur" to open the report. İl/İlçe/Mahalle
+ * come from the data layer (curated pilots + OSM-indexed mahalle), so nothing is
+ * hardcoded. "Haritadan seç" opens the map point-picker; Compare is "yakında".
  */
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, ArrowRight } from "lucide-react";
+import { MapPin, ArrowRight, ChevronDown } from "lucide-react";
 import { T } from "@/lib/i18n/tr";
 
 export interface PickerItem {
@@ -39,45 +39,43 @@ function reportHref(item: PickerItem): string {
   return `/n/${item.slug}`;
 }
 
-const lc = (s: string) => s.toLocaleLowerCase("tr-TR");
 const uniq = (xs: string[]) => Array.from(new Set(xs));
+const sortTr = (xs: string[]) => [...xs].sort((a, b) => a.localeCompare(b, "tr"));
 
 export default function LocationPicker({ neighborhoods }: { neighborhoods: PickerItem[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const cities = useMemo(() => uniq(neighborhoods.map((n) => n.city)), [neighborhoods]);
+  const cities = useMemo(() => sortTr(uniq(neighborhoods.map((n) => n.city))), [neighborhoods]);
   const [city, setCity] = useState(cities[0] ?? "");
 
   const districts = useMemo(
-    () => uniq(neighborhoods.filter((n) => n.city === city).map((n) => n.district)),
+    () => sortTr(uniq(neighborhoods.filter((n) => n.city === city).map((n) => n.district))),
     [neighborhoods, city],
   );
   const [district, setDistrict] = useState(districts[0] ?? "");
-  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
 
   const options = useMemo(
     () =>
       neighborhoods
-        .filter((n) => n.city === city && n.district === district && lc(n.name).includes(lc(query)))
+        .filter((n) => n.city === city && n.district === district)
         .sort((a, b) => a.name.localeCompare(b.name, "tr")),
-    [neighborhoods, city, district, query],
+    [neighborhoods, city, district],
   );
 
   const selectedItem = neighborhoods.find((n) => n.slug === selected) ?? null;
 
   function pickCity(c: string) {
     setCity(c);
-    const firstDistrict = uniq(neighborhoods.filter((n) => n.city === c).map((n) => n.district))[0] ?? "";
+    const firstDistrict =
+      sortTr(uniq(neighborhoods.filter((n) => n.city === c).map((n) => n.district)))[0] ?? "";
     setDistrict(firstDistrict);
     setSelected(null);
-    setQuery("");
   }
   function pickDistrict(d: string) {
     setDistrict(d);
     setSelected(null);
-    setQuery("");
   }
 
   return (
@@ -95,47 +93,49 @@ export default function LocationPicker({ neighborhoods }: { neighborhoods: Picke
         </span>
       </div>
 
-      {/* Cascading select */}
+      {/* Cascading selects */}
       <div className="mt-4 rounded-lg border border-line p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-muted">{T.picker.heading}</p>
 
-        <ChipRow label={T.picker.city} items={cities} value={city} onPick={pickCity} />
-        <ChipRow label={T.picker.district} items={districts} value={district} onPick={pickDistrict} />
+        <SelectField
+          label={T.picker.city}
+          value={city}
+          onChange={pickCity}
+          disabled={cities.length === 0}
+        >
+          {cities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </SelectField>
 
-        <label className="mt-3 block text-xs font-medium text-muted">{T.picker.selectNeighborhood}</label>
-        <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3">
-          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={T.picker.searchPlaceholder}
-            className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted"
-          />
-        </div>
+        <SelectField
+          label={T.picker.district}
+          value={district}
+          onChange={pickDistrict}
+          disabled={districts.length === 0}
+        >
+          {districts.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </SelectField>
 
-        <ul className="mt-2 max-h-48 overflow-y-auto">
-          {options.length === 0 ? (
-            <li className="px-1 py-2 text-sm text-muted">{T.picker.noResults}</li>
-          ) : (
-            options.map((n) => (
-              <li key={n.slug}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(n.slug)}
-                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                    selected === n.slug
-                      ? "bg-brand-100 font-medium text-brand-700"
-                      : "hover:bg-surface-2"
-                  }`}
-                >
-                  {n.name}
-                  {selected === n.slug && <span aria-hidden>✓</span>}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
+        <SelectField
+          label={T.picker.selectNeighborhood}
+          value={selected ?? ""}
+          onChange={(v) => setSelected(v || null)}
+          disabled={options.length === 0}
+          placeholder={options.length === 0 ? T.picker.noResults : T.picker.selectPrompt}
+        >
+          {options.map((n) => (
+            <option key={n.slug} value={n.slug}>
+              {n.name}
+            </option>
+          ))}
+        </SelectField>
       </div>
 
       {/* Select a point from the map (§19.2, §19.4) */}
@@ -178,36 +178,40 @@ export default function LocationPicker({ neighborhoods }: { neighborhoods: Picke
   );
 }
 
-function ChipRow({
+function SelectField({
   label,
-  items,
   value,
-  onPick,
+  onChange,
+  children,
+  disabled,
+  placeholder,
 }: {
   label: string;
-  items: string[];
   value: string;
-  onPick: (v: string) => void;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+  /** When set, renders a leading empty option (e.g. "Bir mahalle seçin"). */
+  placeholder?: string;
 }) {
   return (
-    <div className="mt-3">
+    <label className="mt-3 block">
       <span className="text-xs font-medium text-muted">{label}</span>
-      <div className="mt-1 flex flex-wrap gap-2">
-        {items.map((it) => (
-          <button
-            key={it}
-            type="button"
-            onClick={() => onPick(it)}
-            className={`rounded-full border px-3 py-1 text-sm ${
-              value === it
-                ? "border-brand-600 bg-brand-100 font-medium text-brand-700"
-                : "border-line bg-surface-2 text-ink hover:border-brand-500"
-            }`}
-          >
-            {it}
-          </button>
-        ))}
+      <div className="relative mt-1">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="h-11 w-full appearance-none rounded-lg border border-line bg-surface-2 px-3 pr-9 text-sm text-ink outline-none focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {placeholder !== undefined && <option value="">{placeholder}</option>}
+          {children}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          aria-hidden
+        />
       </div>
-    </div>
+    </label>
   );
 }
