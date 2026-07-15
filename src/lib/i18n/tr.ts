@@ -89,6 +89,21 @@ export const T = {
     footerDisclaimer:
       "Puanlar hâlihazırda mevcut verilere dayanır ve her işletmeyi veya son değişiklikleri içermeyebilir.",
   },
+  picker: {
+    heading: "Mahalle / nokta",
+    singleReport: "Tek rapor",
+    compare: "Karşılaştır",
+    comingSoon: "yakında",
+    step: (n: number, total: number) => `${n} / ${total}`,
+    city: "İl",
+    district: "İlçe",
+    selectNeighborhood: "Mahalle seçin",
+    searchPlaceholder: "Mahalle arayın…",
+    noResults: "Sonuç bulunamadı.",
+    fromMap: "Haritadan seç",
+    createReport: "Rapor oluştur",
+    selectPrompt: "Bir mahalle seçin",
+  },
   report: {
     sampleDataLabel: "Örnek veri.",
     scoreLabel: "Mahalle Yaşam Puanı / 100",
