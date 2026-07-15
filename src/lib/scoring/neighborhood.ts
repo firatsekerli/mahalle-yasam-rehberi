@@ -25,7 +25,7 @@
 import {
   applyMissingEssentialPenalty,
   bayesianRating,
-  proximityScore,
+  placeProximity,
   scoreCategory,
   type CategoryScore,
   type ScorablePlace,
@@ -97,7 +97,7 @@ export interface NeighborhoodScore {
 
 /** Places counted as reachable for a category (proximity > 0). */
 function reachableInGroup(places: ScorablePlace[], cfg: ScoringConfig) {
-  return places.filter((p) => proximityScore(p.distanceMeters, cfg) > 0);
+  return places.filter((p) => placeProximity(p, cfg) > 0);
 }
 
 function missingEssentialNames(
@@ -136,7 +136,7 @@ function businessQualityDimension(
   cfg: ScoringConfig,
 ): DimensionScore {
   const reachableRated = places
-    .map((p) => ({ p, prox: proximityScore(p.distanceMeters, cfg) }))
+    .map((p) => ({ p, prox: placeProximity(p, cfg) }))
     .filter((x) => x.prox > 0 && x.p.rating !== undefined);
 
   if (reachableRated.length === 0) {
@@ -295,7 +295,7 @@ function computeConfidence(
   const dimensionAvailability = weightedDims > 0 ? availableDims / weightedDims : 0;
 
   const reachablePlaceCount = places.filter(
-    (p) => proximityScore(p.distanceMeters, cfg) > 0,
+    (p) => placeProximity(p, cfg) > 0,
   ).length;
   // Saturating: ~30 reachable places reads as a well-mapped area.
   const volumeAdequacy = 1 - Math.exp(-reachablePlaceCount / 15);

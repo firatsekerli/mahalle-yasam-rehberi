@@ -27,12 +27,19 @@ export interface ScoringConfig {
   version: string;
   /** Default category weights — MUST sum to 1.0 (§11.2). */
   weights: Record<WeightKey, number>;
-  /** Straight-line distance bands in meters (MVP; not real walk time — §15.7). */
+  /** Straight-line distance bands in meters (fallback when no routing — §15.7). */
   distanceBands: {
     /** Full proximity credit within this radius. */
     nearMeters: number;
     /** Partial credit out to here; zero credit beyond. */
     reachableMeters: number;
+  };
+  /** Walk-time bands in minutes, used when routed isochrones are available (§15.7). */
+  walkBands: {
+    /** Full proximity credit within this many minutes on foot. */
+    nearMinutes: number;
+    /** Partial credit out to here; zero credit beyond. */
+    reachableMinutes: number;
   };
   /** Diminishing-returns knee: count at which extra places stop helping much (§11.4). */
   saturationCount: number;
@@ -63,6 +70,10 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
   distanceBands: {
     nearMeters: 400,
     reachableMeters: 1200,
+  },
+  walkBands: {
+    nearMinutes: 10,
+    reachableMinutes: 15,
   },
   saturationCount: 4,
   ratingPrior: {

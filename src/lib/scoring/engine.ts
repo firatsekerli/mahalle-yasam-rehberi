@@ -19,6 +19,12 @@ export interface ScorablePlace {
   categorySlug: string;
   /** Straight-line distance to the reference point, in meters (§15.7). */
   distanceMeters: number;
+  /**
+   * Routed walking minutes when isochrones are available (§15.7). When set,
+   * proximity uses walk bands instead of straight-line distance. A value beyond
+   * `reachableMinutes` means "outside the walk isochrones" → zero credit.
+   */
+  walkMinutes?: number;
   /** Google-derived rating 0..5, if enrichment ran; undefined = unrated (§31.1). */
   rating?: number;
   /** Number of ratings backing `rating`. */
@@ -48,6 +54,30 @@ export function proximityScore(
   if (distanceMeters <= nearMeters) return 1;
   if (distanceMeters >= reachableMeters) return 0;
   return (reachableMeters - distanceMeters) / (reachableMeters - nearMeters);
+}
+
+/**
+ * Proximity credit 0..1 from routed walking minutes (§11.3, §15.7). Full credit
+ * within `nearMinutes`, decaying linearly to 0 at `reachableMinutes`.
+ */
+export function walkProximityScore(
+  walkMinutes: number,
+  cfg: ScoringConfig = DEFAULT_SCORING_CONFIG,
+): number {
+  const { nearMinutes, reachableMinutes } = cfg.walkBands;
+  if (walkMinutes <= nearMinutes) return 1;
+  if (walkMinutes >= reachableMinutes) return 0;
+  return (reachableMinutes - walkMinutes) / (reachableMinutes - nearMinutes);
+}
+
+/** Proximity for a place: routed walk bands when available, else straight-line distance. */
+export function placeProximity(
+  place: ScorablePlace,
+  cfg: ScoringConfig = DEFAULT_SCORING_CONFIG,
+): number {
+  return place.walkMinutes !== undefined
+    ? walkProximityScore(place.walkMinutes, cfg)
+    : proximityScore(place.distanceMeters, cfg);
 }
 
 /**
@@ -90,7 +120,7 @@ export function scoreCategory(
   cfg: ScoringConfig = DEFAULT_SCORING_CONFIG,
 ): CategoryScore {
   const reachable = places
-    .map((p) => ({ p, prox: proximityScore(p.distanceMeters, cfg) }))
+    .map((p) => ({ p, prox: placeProximity(p, cfg) }))
     .filter((x) => x.prox > 0);
 
   if (reachable.length === 0) {
