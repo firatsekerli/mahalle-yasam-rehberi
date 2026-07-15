@@ -1,9 +1,8 @@
-import Link from "next/link";
-import { Search, Scale, SlidersHorizontal, Building2, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Scale, SlidersHorizontal, Building2 } from "lucide-react";
 import { listReportNeighborhoods } from "@/lib/report/data";
 import { LIFESTYLE_PROFILES } from "@/lib/scoring/profiles";
 import { T } from "@/lib/i18n/tr";
+import LocationPicker from "@/components/LocationPicker";
 
 export default function Home() {
   return (
@@ -18,38 +17,11 @@ export default function Home() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-muted">{T.home.heroLead}</p>
 
-        {/* Search entry point (backend wiring comes in a later step) */}
-        <form
-          className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-xl border border-line bg-surface-2 p-2"
-          aria-label={T.home.searchPlaceholder}
-        >
-          <Search className="ml-2 h-5 w-5 shrink-0 text-muted" aria-hidden />
-          <input
-            type="search"
-            placeholder={T.home.searchPlaceholder}
-            className="h-10 w-full bg-transparent px-1 text-base outline-none placeholder:text-muted"
-            disabled
-          />
-          <Button size="lg" type="submit" disabled>
-            {T.home.searchButton}
-          </Button>
-        </form>
-        <p className="mt-3 text-sm text-muted">{T.home.searchNote}</p>
-
-        {/* Reachable sample reports (§29 step 9) */}
-        <div className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2">
-          <span className="self-center text-sm text-muted">{T.home.trySample}</span>
-          {listReportNeighborhoods().map((n) => (
-            <Link
-              key={n.slug}
-              href={`/n/${n.slug}`}
-              className="inline-flex items-center gap-1 rounded-full border border-brand-500 px-4 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
-            >
-              {n.name}, {n.district}
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-          ))}
+        {/* Guided location picker (§19.2) */}
+        <div className="mt-8">
+          <LocationPicker neighborhoods={listReportNeighborhoods()} />
         </div>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted">{T.home.searchNote}</p>
       </section>
 
       {/* What makes it different (§8) */}
