@@ -17,7 +17,7 @@ export default function ReportView({
   report: NeighborhoodReport;
   profileHref: (profileSlug: string) => string;
 }) {
-  const { neighborhood, score, profile, demographics, highlights, businesses, placeCount, dataNotice } =
+  const { neighborhood, score, profile, demographics, highlights, nearbyCounts, businesses, placeCount, dataNotice } =
     report;
   const place = [neighborhood.district, neighborhood.city].filter(Boolean).join(" · ");
 
@@ -142,6 +142,35 @@ export default function ReportView({
           ))}
         </div>
       </section>
+
+      {/* Nearby facility counts by category (§19.3 "Yakın çevre") */}
+      {nearbyCounts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xl font-semibold">{T.report.nearbyTitle}</h2>
+          <p className="mt-1 text-sm text-muted">{T.report.nearbyIntro}</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {nearbyCounts.map((g) => (
+              <div key={g.group} className="rounded-[var(--radius-card)] border border-line p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-sm font-semibold">{g.groupName}</h3>
+                  <span className="shrink-0 text-xs text-muted">{T.report.nearbyTotal(g.total)}</span>
+                </div>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {g.categories.map((c) => (
+                    <li key={c.categorySlug} className="flex items-baseline justify-between gap-4">
+                      <span className="min-w-0 truncate text-ink">
+                        {c.categoryName}
+                        <span className="ml-1 text-muted">· {T.report.nearbyCount(c.count)}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted">{T.report.nearbyNearest(c.nearestMeters)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Top nearby options */}
       {highlights.length > 0 && (
