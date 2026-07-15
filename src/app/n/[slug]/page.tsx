@@ -48,6 +48,18 @@ export default async function NeighborhoodReportPage({
               </span>
             )}
           </p>
+          <p className="mt-1 text-xs text-muted">
+            📍 {T.report.measurementCenter}:{" "}
+            <a
+              href={osmCenterUrl(neighborhood.centroid)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand-600 hover:underline"
+            >
+              {T.report.viewOnMap} ↗
+            </a>{" "}
+            · {T.report.measurementCenterNote}
+          </p>
         </div>
         <div className="text-right">
           <div className="text-5xl font-semibold tabular-nums">{score.overall}</div>
@@ -233,6 +245,11 @@ export default async function NeighborhoodReportPage({
 
 function capitalize(s: string): string {
   return s.charAt(0).toLocaleUpperCase("tr-TR") + s.slice(1);
+}
+
+/** Link to the measurement centroid on OpenStreetMap's site (free, compliant — just a hyperlink). */
+function osmCenterUrl(c: { lat: number; lng: number }): string {
+  return `https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=16/${c.lat}/${c.lng}`;
 }
 
 function DimensionCard({ d }: { d: DimensionScore }) {

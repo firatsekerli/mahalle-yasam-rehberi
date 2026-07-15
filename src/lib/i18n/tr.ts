@@ -120,6 +120,9 @@ export const T = {
       "~ (tahmini): Kuş uçuşu mesafeye ve ortalama ~4,8 km/s yürüyüş hızına göre tahmin edilir; gerçek yürüyüş rotası değildir ve genellikle iyimserdir.",
     walkExplainerCaveat:
       "Süreler mahalle merkezinden ölçülür (belirli bir adresten değil) ve yokuşlar süreyi uzatabilir.",
+    measurementCenter: "Ölçüm merkezi",
+    measurementCenterNote: "Mesafe ve yürüyüş süreleri bu noktadan hesaplanır (yaklaşık).",
+    viewOnMap: "haritada gör",
     walkMin: (min: number) => `~${min} dk`,
     walkWithin: (min: number) => `≤${min} dk`,
     unavailable:
