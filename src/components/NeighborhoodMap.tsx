@@ -150,7 +150,7 @@ export default function NeighborhoodMap({
   return (
     <div
       ref={ref}
-      className="h-80 w-full overflow-hidden rounded-[var(--radius-card)] border border-line"
+      className="h-[28rem] w-full overflow-hidden rounded-[var(--radius-card)] border border-line"
     />
   );
 }

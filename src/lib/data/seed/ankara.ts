@@ -46,7 +46,7 @@ export const SAMPLE_NEIGHBORHOODS: NeighborhoodMeta[] = [
     name: "Ayrancı",
     district: "Çankaya",
     city: "Ankara",
-    centroid: { lat: 39.9045, lng: 32.864 },
+    centroid: { lat: 39.902, lng: 32.857 },
     boundaryConfidence: "experimental",
     isApproximate: true,
   },
