@@ -12,7 +12,11 @@
 
 import { unstable_cache } from "next/cache";
 import { OsmBaselineSource } from "@/lib/data/adapters/osm";
-import { fetchNeighborhoodPlacesFromDb, supabaseConfigured } from "@/lib/data/adapters/osm-db";
+import {
+  fetchNeighborhoodPlacesFromDb,
+  fetchPlacesNearFromDb,
+  supabaseConfigured,
+} from "@/lib/data/adapters/osm-db";
 import {
   OpenRouteServiceIsochroneSource,
   isochroneConfigured,
@@ -56,6 +60,19 @@ const fetchDbCached = unstable_cache(
   ["osm-db-neighborhood-places"],
   { revalidate: DB_REVALIDATE_SECONDS },
 );
+
+const fetchDbNearCached = unstable_cache(
+  async (lat: number, lng: number): Promise<BaselinePlace[]> =>
+    fetchPlacesNearFromDb({ lat, lng }, OSM_RADIUS_M),
+  ["osm-db-places-near"],
+  { revalidate: DB_REVALIDATE_SECONDS },
+);
+
+/** Drop places that share an OSM id (a POI can be seeded under two neighborhoods). */
+function dedupeBySourceId(places: BaselinePlace[]): BaselinePlace[] {
+  const seen = new Set<string>();
+  return places.filter((p) => (seen.has(p.sourceId) ? false : (seen.add(p.sourceId), true)));
+}
 
 /** Walk isochrones change only with the street network — cache a week. */
 const ISOCHRONE_REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
@@ -115,12 +132,24 @@ export async function getPointReport(
     isApproximate: true,
   };
 
+  // Prefer already-seeded data near the point (fast, reliable, no request-time
+  // Overpass); fall back to live OSM for points far from any seeded area. Empty
+  // on total failure — an honest low-coverage report, never a fabricated one.
   let places: BaselinePlace[] = [];
   if (!forceSample()) {
-    try {
-      places = await fetchLiveCached(`${lat},${lng}`, lat, lng);
-    } catch {
-      places = [];
+    if (supabaseConfigured()) {
+      try {
+        places = dedupeBySourceId(await fetchDbNearCached(lat, lng));
+      } catch {
+        places = [];
+      }
+    }
+    if (places.length === 0) {
+      try {
+        places = await fetchLiveCached(`${lat},${lng}`, lat, lng);
+      } catch {
+        places = [];
+      }
     }
   }
 
