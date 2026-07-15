@@ -111,6 +111,15 @@ export const T = {
     liveData: "Canlı OpenStreetMap verisi",
     walkNote: "~ ile gösterilen yürüyüş süreleri, kuş uçuşu mesafeye göre tahminidir (gerçek rota değildir).",
     walkRoutedNote: "Yürüyüş süreleri gerçek yürüyüş rotasına dayanır (openrouteservice).",
+    walkExplainerTitle: "Yürüyüş süresi nasıl hesaplanır?",
+    walkExplainerIntro:
+      "Bu süreler, mahalle merkezinden bir yere yürüyerek yaklaşık ne kadar sürede ulaşabileceğinizi gösterir.",
+    walkExplainerRouted:
+      "≤10 dk / ≤15 dk: Gerçek sokak ve yaya yolu ağı üzerinden hesaplanır (openrouteservice) — yani o kadar dakikada yürüyerek ulaşılabilen bölgenin içinde demektir.",
+    walkExplainerEstimate:
+      "~ (tahmini): Kuş uçuşu mesafeye ve ortalama ~4,8 km/s yürüyüş hızına göre tahmin edilir; gerçek yürüyüş rotası değildir ve genellikle iyimserdir.",
+    walkExplainerCaveat:
+      "Süreler mahalle merkezinden ölçülür (belirli bir adresten değil) ve yokuşlar süreyi uzatabilir.",
     walkMin: (min: number) => `~${min} dk`,
     walkWithin: (min: number) => `≤${min} dk`,
     unavailable:

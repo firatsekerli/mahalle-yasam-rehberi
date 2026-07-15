@@ -179,6 +179,19 @@ export default async function NeighborhoodReportPage({
             {businesses.some((b) => b.walkEstimated) ? T.report.walkNote : T.report.walkRoutedNote}
           </p>
         )}
+
+        {/* Plain-language methodology note — how walk times are calculated (§8 transparency) */}
+        <details className="mt-3 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm">
+          <summary className="cursor-pointer font-medium text-ink">
+            {T.report.walkExplainerTitle}
+          </summary>
+          <div className="mt-2 space-y-2 text-muted">
+            <p>{T.report.walkExplainerIntro}</p>
+            <p>{T.report.walkExplainerRouted}</p>
+            <p>{T.report.walkExplainerEstimate}</p>
+            <p>{T.report.walkExplainerCaveat}</p>
+          </div>
+        </details>
       </section>
 
       {/* Demographics (facts only, §12.5, §28) --------------------------------- */}
