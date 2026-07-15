@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:osm": "tsx scripts/seed-osm.ts"
+    "seed:osm": "tsx scripts/seed-osm.ts",
+    "import:admin": "tsx scripts/import-admin.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

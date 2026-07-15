@@ -48,27 +48,40 @@ Every future PR gets an automatic **preview URL** — useful for review.
 
 ## Phase 1 — Real open data via Supabase ($0 in API costs)
 
-The app reads places in this order: **Supabase `osm_places` → live Overpass →
-sample**. Seeding Supabase gives reliable real data without an Overpass call on
-every request. `DATA_SOURCE=sample` forces the sample dataset.
+The app reads report places in this order: **live Overpass → Supabase `osm_places`
+→ sample**. The list always reflects current OSM; the Supabase snapshot is a
+reliability fallback when live OSM is slow/down. `DATA_SOURCE=sample` forces the
+sample dataset. The **İl/İlçe/Mahalle selector** is populated from the
+`neighborhood_index` table (dynamic — nothing hardcoded), with the curated pilot
+neighborhoods always available even before you import.
 
 **One-time setup:**
 
 1. **Create a Supabase project** (Free tier is enough for the pilot).
-2. **Run the migrations** in `supabase/migrations/` in order (0001→0005) via the
-   Supabase SQL editor. `0001` enables PostGIS; `0005` creates `osm_places`.
+2. **Run the migrations** in `supabase/migrations/` in order (0001→0006) via the
+   Supabase SQL editor. `0001` enables PostGIS; `0005` creates `osm_places`;
+   `0006` creates `neighborhood_index` (the selector directory).
 3. **Add env vars in Vercel** (Project → Settings → Environment Variables):
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public read)
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only — never exposed to the browser)
 4. **Add GitHub repo secrets** (Settings → Secrets → Actions):
    - `SUPABASE_URL` (your project URL) and `SUPABASE_SERVICE_ROLE_KEY`
-5. **Seed the data:** Actions tab → **"Seed OSM data"** → *Run workflow*. It
-   fetches real OSM around each pilot neighborhood and upserts into `osm_places`.
-   (Or run locally: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm seed:osm`.)
-6. **Redeploy** (or wait for the ISR cache to expire). The report now serves real
-   data from Supabase, with the green "Canlı OpenStreetMap verisi" badge.
+5. **Seed pilot places:** Actions tab → **"Seed OSM data"** → *Run workflow*.
+   Fetches real OSM around each pilot neighborhood and upserts into `osm_places`.
+   (Or locally: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm seed:osm`.)
+6. **Import the selector hierarchy:** Actions tab → **"Import admin data"** → *Run
+   workflow* → enter a province (start with `Ankara`). Fetches every ilçe + its
+   mahalle from OSM and upserts into `neighborhood_index`, filling the dropdowns.
+   (Or locally: `… PROVINCES="Ankara" pnpm import:admin`.) Re-run per province to
+   expand coverage — no code change needed.
+7. **Redeploy** (or wait for the ISR cache to expire). The report serves live OSM
+   data with the green "Canlı OpenStreetMap verisi" badge, and the selector lists
+   every imported mahalle.
 
-**To refresh** later, or after adding neighborhoods, just re-run the Seed action.
+**To refresh** later, or after adding areas, just re-run the relevant action.
+Reports for imported mahalle are generated live at the mahalle's **approximate**
+centroid and clearly labeled "yaklaşık sınır" (§12.2) — verified boundaries come
+later via the canonical `neighborhoods` table.
 
 **Later (scale):** move `osm_places` into the canonical `places` +
 `place_source_references` model with dedup (§14), and import **TÜİK demographics**
