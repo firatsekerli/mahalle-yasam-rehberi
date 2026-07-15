@@ -103,8 +103,16 @@ export const T = {
     fromMap: "Haritadan seç",
     createReport: "Rapor oluştur",
     selectPrompt: "Bir mahalle seçin",
+    mapPickTitle: "Haritadan bir nokta seçin",
+    mapPickPrompt: "Rapor almak istediğiniz noktaya haritada tıklayın.",
+    mapPickButton: "Bu noktada rapor oluştur",
+    mapPickChosen: "Seçilen nokta",
+    mapPickFallback:
+      "Harita yapılandırılmadı. Nokta seçimi için harita sağlayıcısı (NEXT_PUBLIC_MAP_TILES_URL) gereklidir.",
+    back: "← Geri",
   },
   report: {
+    pointLabel: "Seçilen nokta",
     sampleDataLabel: "Örnek veri.",
     scoreLabel: "Mahalle Yaşam Puanı / 100",
     lifestyleProfile: "Yaşam tarzı profili",

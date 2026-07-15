@@ -94,6 +94,50 @@ export function listReportNeighborhoods() {
   }));
 }
 
+/**
+ * Report for an arbitrary point (§19.4) — e.g. a pin dropped on the map. No
+ * pre-seeded data exists for random coordinates, so places come from live
+ * Overpass around the point; empty on failure (an honest low-coverage report).
+ */
+export async function getPointReport(
+  lat: number,
+  lng: number,
+  profileSlug: string | undefined,
+  label: string,
+): Promise<NeighborhoodReport> {
+  const neighborhood: NeighborhoodMeta = {
+    slug: "nokta",
+    name: label,
+    district: "",
+    city: "",
+    centroid: { lat, lng },
+    boundaryConfidence: "experimental",
+    isApproximate: true,
+  };
+
+  let places: BaselinePlace[] = [];
+  if (!forceSample()) {
+    try {
+      places = await fetchLiveCached(`${lat},${lng}`, lat, lng);
+    } catch {
+      places = [];
+    }
+  }
+
+  const profile = getProfile(profileSlug);
+  const isochrones = await getIsochrones(neighborhood);
+
+  return buildNeighborhoodReport({
+    neighborhood,
+    places,
+    demographics: null,
+    profile,
+    currentYear: CURRENT_YEAR,
+    sample: false,
+    isochrones,
+  });
+}
+
 export async function getNeighborhoodReport(
   slug: string,
   profileSlug: string | undefined,
