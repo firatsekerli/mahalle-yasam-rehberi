@@ -106,8 +106,12 @@ export interface NeighborhoodReport {
   isochrones?: WalkIsochrone[];
 }
 
-/** Max businesses sent to the client for the list (the count still reports the true total). */
-const MAX_BUSINESSES = 150;
+/**
+ * Max businesses shown in the list — the nearest N (the count still reports the
+ * true total, e.g. "480 işletme bulundu — en yakın 50 gösteriliyor"). The list is
+ * a supporting view, not a directory (§31.1); a tight cap keeps it readable.
+ */
+const MAX_BUSINESSES = 50;
 
 /**
  * Categories excluded from the *business list* (they still count toward scoring).

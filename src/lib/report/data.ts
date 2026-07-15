@@ -176,10 +176,12 @@ export async function getNeighborhoodReport(
 
   const { places, sample } = await resolveNeighborhoodPlaces(neighborhood, {
     realSources: [
-      // 1. Supabase-seeded real data (only when configured).
-      supabaseConfigured() ? (n: NeighborhoodMeta) => fetchDbCached(n.slug) : null,
-      // 2. Live OSM fallback for un-seeded neighborhoods.
+      // 1. Live OpenStreetMap first — the list should reflect current reality
+      //    (cached a day to stay within Overpass limits).
       (n: NeighborhoodMeta) => fetchLiveCached(n.slug, n.centroid.lat, n.centroid.lng),
+      // 2. Supabase-seeded snapshot as a reliability fallback when live OSM is
+      //    down / rate-limited / returns empty (keeps pilot areas dependable).
+      supabaseConfigured() ? (n: NeighborhoodMeta) => fetchDbCached(n.slug) : null,
     ],
     getSample: getSamplePlaces,
     forceSample: forceSample(),
