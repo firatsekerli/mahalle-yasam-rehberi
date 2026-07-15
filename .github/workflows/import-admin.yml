@@ -1,0 +1,39 @@
+name: Import admin data
+
+# Populate Supabase `neighborhood_index` with Turkey's il / ilçe / mahalle from
+# OpenStreetMap, so the neighborhood selector is data-driven (nothing hardcoded).
+# Runs on GitHub's network (Overpass is reachable here) and writes to Supabase
+# with the service-role key. Trigger manually from the Actions tab and enter the
+# province (il) to import — start with Ankara (§18.1), add cities as coverage
+# is verified.
+#
+# Required repository secrets:
+#   SUPABASE_URL                — your Supabase project URL
+#   SUPABASE_SERVICE_ROLE_KEY   — service-role key (server-only; never in the app)
+
+on:
+  workflow_dispatch:
+    inputs:
+      provinces:
+        description: "Comma-separated il names to import (e.g. Ankara or Ankara,İstanbul)"
+        required: true
+        default: "Ankara"
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    # Province imports iterate every ilçe with polite pauses — allow ample time.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm import:admin
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PROVINCES: ${{ inputs.provinces }}

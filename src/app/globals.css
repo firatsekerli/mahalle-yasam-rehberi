@@ -31,6 +31,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Tailwind v4 resets cursor on buttons; restore the affordance for enabled ones. */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+label[for],
+summary {
+  cursor: pointer;
+}
+
 /* Confidence badge accents — data honesty is a first-class UI concern (CLAUDE.md §13). */
 .confidence-high {
   color: oklch(0.5 0.13 155);

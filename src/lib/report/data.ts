@@ -12,7 +12,13 @@
 
 import { unstable_cache } from "next/cache";
 import { OsmBaselineSource } from "@/lib/data/adapters/osm";
-import { fetchNeighborhoodPlacesFromDb, supabaseConfigured } from "@/lib/data/adapters/osm-db";
+import {
+  fetchNeighborhoodPlacesFromDb,
+  fetchPlacesNearFromDb,
+  supabaseConfigured,
+} from "@/lib/data/adapters/osm-db";
+import { fetchIndexedNeighborhoods } from "@/lib/data/adapters/neighborhood-index-db";
+import { areaSlug } from "@/lib/text/slug";
 import {
   OpenRouteServiceIsochroneSource,
   isochroneConfigured,
@@ -57,6 +63,19 @@ const fetchDbCached = unstable_cache(
   { revalidate: DB_REVALIDATE_SECONDS },
 );
 
+const fetchDbNearCached = unstable_cache(
+  async (lat: number, lng: number): Promise<BaselinePlace[]> =>
+    fetchPlacesNearFromDb({ lat, lng }, OSM_RADIUS_M),
+  ["osm-db-places-near"],
+  { revalidate: DB_REVALIDATE_SECONDS },
+);
+
+/** Drop places that share an OSM id (a POI can be seeded under two neighborhoods). */
+function dedupeBySourceId(places: BaselinePlace[]): BaselinePlace[] {
+  const seen = new Set<string>();
+  return places.filter((p) => (seen.has(p.sourceId) ? false : (seen.add(p.sourceId), true)));
+}
+
 /** Walk isochrones change only with the street network — cache a week. */
 const ISOCHRONE_REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
 
@@ -85,13 +104,68 @@ function forceSample(): boolean {
   return process.env.DATA_SOURCE === "sample";
 }
 
-export function listReportNeighborhoods() {
-  return SAMPLE_NEIGHBORHOODS.map((n) => ({
+/** One selectable area for the picker. `lat`/`lng` present → dynamic point report. */
+export interface ReportNeighborhoodItem {
+  slug: string;
+  name: string;
+  district: string;
+  city: string;
+  /** Approximate centroid for dynamic (OSM-indexed) mahalle; absent for curated ones. */
+  lat?: number;
+  lng?: number;
+}
+
+/** Indexed hierarchy changes only when the import job runs — cache generously. */
+const INDEX_REVALIDATE_SECONDS = 60 * 60 * 24;
+
+const fetchIndexCached = unstable_cache(
+  async (): Promise<ReportNeighborhoodItem[]> =>
+    (await fetchIndexedNeighborhoods()).map((n) => ({
+      slug: n.slug,
+      name: n.name,
+      district: n.district,
+      city: n.city,
+      lat: n.lat,
+      lng: n.lng,
+    })),
+  ["neighborhood-index"],
+  { revalidate: INDEX_REVALIDATE_SECONDS },
+);
+
+const normKey = (city: string, district: string, name: string) =>
+  areaSlug(city, district, name);
+
+/**
+ * The selectable neighborhoods for the picker: curated sample areas first (they
+ * have rich `/n/[slug]` pages), then the dynamic OSM-indexed mahalle, with any
+ * that duplicate a curated area removed. Falls back to just the curated set when
+ * the index is empty or Supabase isn't configured — never empty, never hardcoded
+ * beyond the pilot seed.
+ */
+export async function listReportNeighborhoods(): Promise<ReportNeighborhoodItem[]> {
+  const curated: ReportNeighborhoodItem[] = SAMPLE_NEIGHBORHOODS.map((n) => ({
     slug: n.slug,
     name: n.name,
     district: n.district,
     city: n.city,
   }));
+
+  let indexed: ReportNeighborhoodItem[] = [];
+  try {
+    indexed = await fetchIndexCached();
+  } catch {
+    indexed = [];
+  }
+
+  const seen = new Set(curated.map((c) => normKey(c.city, c.district, c.name)));
+  const dynamic = indexed.filter((n) => {
+    const key = normKey(n.city, n.district, n.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return [...curated, ...dynamic];
 }
 
 /**
@@ -104,23 +178,36 @@ export async function getPointReport(
   lng: number,
   profileSlug: string | undefined,
   label: string,
+  place: { district?: string; city?: string } = {},
 ): Promise<NeighborhoodReport> {
   const neighborhood: NeighborhoodMeta = {
     slug: "nokta",
     name: label,
-    district: "",
-    city: "",
+    district: place.district ?? "",
+    city: place.city ?? "",
     centroid: { lat, lng },
     boundaryConfidence: "experimental",
     isApproximate: true,
   };
 
+  // Prefer already-seeded data near the point (fast, reliable, no request-time
+  // Overpass); fall back to live OSM for points far from any seeded area. Empty
+  // on total failure — an honest low-coverage report, never a fabricated one.
   let places: BaselinePlace[] = [];
   if (!forceSample()) {
-    try {
-      places = await fetchLiveCached(`${lat},${lng}`, lat, lng);
-    } catch {
-      places = [];
+    if (supabaseConfigured()) {
+      try {
+        places = dedupeBySourceId(await fetchDbNearCached(lat, lng));
+      } catch {
+        places = [];
+      }
+    }
+    if (places.length === 0) {
+      try {
+        places = await fetchLiveCached(`${lat},${lng}`, lat, lng);
+      } catch {
+        places = [];
+      }
     }
   }
 
@@ -147,10 +234,12 @@ export async function getNeighborhoodReport(
 
   const { places, sample } = await resolveNeighborhoodPlaces(neighborhood, {
     realSources: [
-      // 1. Supabase-seeded real data (only when configured).
-      supabaseConfigured() ? (n: NeighborhoodMeta) => fetchDbCached(n.slug) : null,
-      // 2. Live OSM fallback for un-seeded neighborhoods.
+      // 1. Live OpenStreetMap first — the list should reflect current reality
+      //    (cached a day to stay within Overpass limits).
       (n: NeighborhoodMeta) => fetchLiveCached(n.slug, n.centroid.lat, n.centroid.lng),
+      // 2. Supabase-seeded snapshot as a reliability fallback when live OSM is
+      //    down / rate-limited / returns empty (keeps pilot areas dependable).
+      supabaseConfigured() ? (n: NeighborhoodMeta) => fetchDbCached(n.slug) : null,
     ],
     getSample: getSamplePlaces,
     forceSample: forceSample(),

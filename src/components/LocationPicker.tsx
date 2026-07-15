@@ -2,12 +2,12 @@
 
 /**
  * Guided location picker (CLAUDE.md §19.2) — cascading İl → İlçe → Mahalle with
- * search, then "Rapor oluştur" to open the report. Compare mode and "Haritadan
- * seç" are scaffolded but disabled ("yakında") — they land in later phases
- * (arbitrary-point reports, comparison §29.10).
+ * search, then "Rapor oluştur" to open the report. İl/İlçe/Mahalle come from the
+ * data layer (curated pilots + OSM-indexed mahalle), so nothing is hardcoded.
+ * "Haritadan seç" opens the map point-picker; Compare mode is still "yakında".
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, ArrowRight } from "lucide-react";
@@ -18,6 +18,25 @@ export interface PickerItem {
   name: string;
   district: string;
   city: string;
+  /** Present for dynamic (OSM-indexed) mahalle → routed to a point report. */
+  lat?: number;
+  lng?: number;
+}
+
+/** Where "Rapor oluştur" navigates: curated areas have rich slug pages; dynamic
+ *  mahalle use the point-report route at their approximate centroid. */
+function reportHref(item: PickerItem): string {
+  if (typeof item.lat === "number" && typeof item.lng === "number") {
+    const params = new URLSearchParams({
+      lat: String(item.lat),
+      lng: String(item.lng),
+      label: item.name,
+      il: item.city,
+      ilce: item.district,
+    });
+    return `/nokta?${params.toString()}`;
+  }
+  return `/n/${item.slug}`;
 }
 
 const lc = (s: string) => s.toLocaleLowerCase("tr-TR");
@@ -25,6 +44,7 @@ const uniq = (xs: string[]) => Array.from(new Set(xs));
 
 export default function LocationPicker({ neighborhoods }: { neighborhoods: PickerItem[] }) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
   const cities = useMemo(() => uniq(neighborhoods.map((n) => n.city)), [neighborhoods]);
   const [city, setCity] = useState(cities[0] ?? "");
@@ -136,12 +156,23 @@ export default function LocationPicker({ neighborhoods }: { neighborhoods: Picke
       {/* Create report */}
       <button
         type="button"
-        disabled={!selected}
-        onClick={() => selected && router.push(`/n/${selected}`)}
+        disabled={!selectedItem || pending}
+        onClick={() =>
+          selectedItem && startTransition(() => router.push(reportHref(selectedItem)))
+        }
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {T.picker.createReport}
-        <ArrowRight className="h-4 w-4" aria-hidden />
+        {pending ? (
+          <>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            {T.picker.creating}
+          </>
+        ) : (
+          <>
+            {T.picker.createReport}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </>
+        )}
       </button>
     </div>
   );

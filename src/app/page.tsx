@@ -4,7 +4,8 @@ import { LIFESTYLE_PROFILES } from "@/lib/scoring/profiles";
 import { T } from "@/lib/i18n/tr";
 import LocationPicker from "@/components/LocationPicker";
 
-export default function Home() {
+export default async function Home() {
+  const neighborhoods = await listReportNeighborhoods();
   return (
     <main className="mx-auto max-w-5xl px-6 py-16 sm:py-24">
       {/* Hero — the central product question (§19.1) */}
@@ -19,7 +20,7 @@ export default function Home() {
 
         {/* Guided location picker (§19.2) */}
         <div className="mt-8">
-          <LocationPicker neighborhoods={listReportNeighborhoods()} />
+          <LocationPicker neighborhoods={neighborhoods} />
         </div>
         <p className="mx-auto mt-3 max-w-xl text-sm text-muted">{T.home.searchNote}</p>
       </section>
