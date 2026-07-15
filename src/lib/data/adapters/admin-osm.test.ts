@@ -3,6 +3,8 @@ import {
   districtsQuery,
   neighborhoodsInAreaQuery,
   parseAdminUnits,
+  boundaryQuery,
+  parseBoundary,
 } from "./admin-osm";
 
 describe("districtsQuery", () => {
@@ -62,5 +64,74 @@ describe("parseAdminUnits", () => {
     });
     expect(units).toHaveLength(1);
     expect(units[0].osmId).toBe("relation/1");
+  });
+});
+
+describe("boundaryQuery", () => {
+  it("requests one relation's full geometry", () => {
+    const q = boundaryQuery(42);
+    expect(q).toContain("rel(42);");
+    expect(q).toContain("out geom;");
+  });
+});
+
+describe("parseBoundary", () => {
+  it("assembles outer (and inner) rings from relation member ways", () => {
+    const area = parseBoundary({
+      elements: [
+        {
+          type: "relation",
+          id: 1,
+          members: [
+            {
+              type: "way",
+              role: "outer",
+              geometry: [
+                { lat: 0, lon: 0 },
+                { lat: 0, lon: 2 },
+                { lat: 2, lon: 2 },
+                { lat: 2, lon: 0 },
+                { lat: 0, lon: 0 },
+              ],
+            },
+            {
+              type: "way",
+              role: "inner",
+              geometry: [
+                { lat: 0.5, lon: 0.5 },
+                { lat: 0.5, lon: 1.5 },
+                { lat: 1.5, lon: 1.5 },
+                { lat: 1.5, lon: 0.5 },
+                { lat: 0.5, lon: 0.5 },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(area).not.toBeNull();
+    expect(area!.outer).toHaveLength(1);
+    expect(area!.inner).toHaveLength(1);
+    // Coordinates are [lng, lat].
+    expect(area!.outer[0][0]).toEqual([0, 0]);
+    expect(area!.outer[0][2]).toEqual([2, 2]);
+  });
+
+  it("returns null when there is no closable outer ring", () => {
+    expect(
+      parseBoundary({
+        elements: [
+          {
+            type: "relation",
+            id: 1,
+            members: [{ type: "way", role: "outer", geometry: [{ lat: 0, lon: 0 }, { lat: 1, lon: 0 }] }],
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null for a response without a relation", () => {
+    expect(parseBoundary({ elements: [] })).toBeNull();
   });
 });

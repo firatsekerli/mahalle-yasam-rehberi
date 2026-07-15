@@ -18,24 +18,10 @@ export interface PickerItem {
   name: string;
   district: string;
   city: string;
-  /** Present for dynamic (OSM-indexed) mahalle → routed to a point report. */
-  lat?: number;
-  lng?: number;
 }
 
-/** Where "Rapor oluştur" navigates: curated areas have rich slug pages; dynamic
- *  mahalle use the point-report route at their approximate centroid. */
+/** Every area (curated or OSM-indexed) has a slug-based report page. */
 function reportHref(item: PickerItem): string {
-  if (typeof item.lat === "number" && typeof item.lng === "number") {
-    const params = new URLSearchParams({
-      lat: String(item.lat),
-      lng: String(item.lng),
-      label: item.name,
-      il: item.city,
-      ilce: item.district,
-    });
-    return `/nokta?${params.toString()}`;
-  }
   return `/n/${item.slug}`;
 }
 

@@ -23,3 +23,23 @@ export function pointInRing(pt: GeoPoint, ring: number[][]): boolean {
   }
   return inside;
 }
+
+/**
+ * An administrative area as outer boundary rings minus inner holes (§12.2 mahalle
+ * boundaries). Rings are `[lng, lat]` pairs; a mahalle is usually one outer ring
+ * with no holes, but multipolygons (detached parts) and holes are supported.
+ */
+export interface Area {
+  outer: number[][][];
+  inner: number[][][];
+}
+
+/**
+ * True if `pt` is inside the area: within at least one outer ring and not inside
+ * any inner (hole) ring.
+ */
+export function pointInArea(pt: GeoPoint, area: Area): boolean {
+  const inOuter = area.outer.some((ring) => pointInRing(pt, ring));
+  if (!inOuter) return false;
+  return !area.inner.some((ring) => pointInRing(pt, ring));
+}
