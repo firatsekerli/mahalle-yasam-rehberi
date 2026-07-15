@@ -8,6 +8,7 @@
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, ArrowRight } from "lucide-react";
 import { T } from "@/lib/i18n/tr";
@@ -117,15 +118,13 @@ export default function LocationPicker({ neighborhoods }: { neighborhoods: Picke
         </ul>
       </div>
 
-      {/* Select from map (later phase) */}
-      <button
-        type="button"
-        disabled
-        title={T.picker.comingSoon}
-        className="mt-3 inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-muted"
+      {/* Select a point from the map (§19.2, §19.4) */}
+      <Link
+        href="/haritadan-sec"
+        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-brand-500"
       >
-        <MapPin className="h-4 w-4" aria-hidden /> {T.picker.fromMap} · {T.picker.comingSoon}
-      </button>
+        <MapPin className="h-4 w-4" aria-hidden /> {T.picker.fromMap}
+      </Link>
 
       {/* Selection summary */}
       <p className="mt-3 text-sm text-muted">
