@@ -10,6 +10,7 @@
 
 import type { BaselinePlace, GeoPoint } from "@/lib/data/adapters/types";
 import type { TuikDemographicRecord } from "@/lib/data/adapters/demographics";
+import { estimateWalkMinutes } from "@/lib/data/adapters/isochrone";
 import { haversineMeters } from "@/lib/geo/distance";
 import {
   scoreNeighborhood,
@@ -49,6 +50,10 @@ export interface NearbyOption {
   categorySlug: string;
   categoryName: string;
   distanceMeters: number;
+  /** Walking minutes — routed when available, else a straight-line estimate (§15.7). */
+  walkMinutes: number;
+  /** True when `walkMinutes` is a straight-line estimate, not a routed time. */
+  walkEstimated: boolean;
 }
 
 export interface ReportGroupHighlights {
@@ -195,6 +200,9 @@ function toOption(place: BaselinePlace, distanceMeters: number): NearbyOption {
     categorySlug: place.categorySlug,
     categoryName,
     distanceMeters,
+    // Straight-line estimate for now; routed isochrones replace this once ORS is wired.
+    walkMinutes: estimateWalkMinutes(distanceMeters),
+    walkEstimated: true,
   };
 }
 

@@ -164,12 +164,19 @@ export default async function NeighborhoodReportPage({
                   <span className="font-medium">{b.name}</span>
                   {b.named && <span className="text-muted"> · {b.categoryName}</span>}
                 </span>
-                <span className="shrink-0 tabular-nums text-muted">≈ {b.distanceMeters} m</span>
+                <span className="shrink-0 tabular-nums text-muted">
+                  ≈ {b.distanceMeters} m ·{" "}
+                  {b.walkEstimated ? "~" : ""}
+                  {T.report.walkMin(b.walkMinutes)}
+                </span>
               </li>
             ))}
           </ul>
         ) : (
           <p className="mt-3 text-sm text-muted">{T.report.businessesEmpty}</p>
+        )}
+        {businesses.some((b) => b.walkEstimated) && (
+          <p className="mt-2 text-xs text-muted">{T.report.walkNote}</p>
         )}
       </section>
 
